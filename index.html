@@ -187,10 +187,26 @@ sunL.shadow.camera.left=-95;sunL.shadow.camera.right=95;sunL.shadow.camera.top=9
 sunL.shadow.camera.near=10;sunL.shadow.camera.far=420;sunL.shadow.bias=-0.0006;
 scene.add(sunL);scene.add(sunL.target);
 
-const skyU={top:{value:new THREE.Color(0x79c2f2)},mid:{value:new THREE.Color(0xcfe8f5)},bot:{value:new THREE.Color(0xf2d9a8)},sunDir:{value:new THREE.Vector3(0,1,0)},sunCol:{value:new THREE.Color(0xfff0c0)}};
+const skyU={top:{value:new THREE.Color(0x79c2f2)},mid:{value:new THREE.Color(0xcfe8f5)},bot:{value:new THREE.Color(0xf2d9a8)},sunDir:{value:new THREE.Vector3(0,1,0)},sunCol:{value:new THREE.Color(0xfff0c0)},sunsetF:{value:0},haze:{value:.4}};
 const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,uniforms:skyU,
 vertexShader:'varying vec3 vDir;void main(){vDir=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-fragmentShader:'varying vec3 vDir;uniform vec3 top;uniform vec3 mid;uniform vec3 bot;uniform vec3 sunDir;uniform vec3 sunCol;\nvoid main(){float y=vDir.y;vec3 c=mix(bot,mid,smoothstep(-0.02,0.22,y));c=mix(c,top,smoothstep(0.22,0.8,y));\nfloat d=max(dot(normalize(vDir),normalize(sunDir)),0.0);\nc+=sunCol*pow(d,700.0)*1.6+c*sunCol*pow(d,8.0)*0.22;\ngl_FragColor=vec4(c,1.0);}'});
+fragmentShader:`varying vec3 vDir;uniform vec3 top;uniform vec3 mid;uniform vec3 bot;uniform vec3 sunDir;uniform vec3 sunCol;uniform float sunsetF;uniform float haze;
+void main(){
+vec3 d=normalize(vDir);
+float y=d.y;
+vec3 c=mix(bot,mid,smoothstep(-0.02,0.22,y));
+c=mix(c,top,smoothstep(0.22,0.8,y));
+vec3 sd=normalize(sunDir);
+float sunAmt=max(dot(normalize(vec3(d.x,0.0,d.z)),normalize(vec3(sd.x,0.0,sd.z))),0.0);
+float horiz=1.0-smoothstep(0.0,0.38,y);
+c+=vec3(1.0,0.42,0.12)*pow(sunAmt,2.6)*horiz*0.6*sunsetF;
+c+=vec3(0.9,0.4,0.5)*pow(sunAmt,8.0)*horiz*0.35*sunsetF;
+c+=vec3(0.75,0.82,1.0)*horiz*0.14*haze;
+float s=max(dot(d,sd),0.0);
+c+=sunCol*pow(s,1100.0)*2.4;
+c+=sunCol*pow(s,90.0)*0.55;
+c+=sunCol*pow(s,7.0)*0.28;
+gl_FragColor=vec4(c,1.0);}`});
 const skyGroup=new THREE.Group();scene.add(skyGroup);
 skyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1500,24,12),skyMat));
 
@@ -198,25 +214,61 @@ skyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1500,24,12),skyMat));
   const n=420,pos=new Float32Array(n*3);
   for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),e=Math.acos(rand(0.03,1)),r=1400;
     pos[i*3]=r*Math.sin(e)*Math.cos(a);pos[i*3+1]=r*Math.cos(e);pos[i*3+2]=r*Math.sin(e)*Math.sin(a);}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-  var starMat=new THREE.PointsMaterial({color:0xd8e0ff,size:1.6,sizeAttenuation:false,transparent:true,opacity:0,fog:false,depthWrite:false});
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  const ph=new Float32Array(n);
+  for(let i=0;i<n;i++)ph[i]=Math.random();
+  g.setAttribute('ph',new THREE.Float32BufferAttribute(ph,1));
+  var starMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,fog:false,
+    uniforms:{uTime:{value:0},uOp:{value:0}},
+    vertexShader:'attribute float ph;varying float vA;uniform float uTime;void main(){vA=.5+.5*sin(uTime*(1.5+ph*2.)+ph*40.);gl_PointSize=1.6+fract(ph*7.3)*1.8;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'varying float vA;uniform float uOp;void main(){gl_FragColor=vec4(.88,.92,1.,(.35+.65*vA)*uOp);}'});
   skyGroup.add(new THREE.Points(g,starMat));
 }
-const sunMesh=new THREE.Mesh(new THREE.SphereGeometry(17,16,12),new THREE.MeshBasicMaterial({color:0xffedb0,fog:false}));skyGroup.add(sunMesh);
-const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(11,16,12),new THREE.MeshBasicMaterial({color:0xe8eeff,fog:false}));skyGroup.add(moonMesh);
+const sunMesh=new THREE.Mesh(new THREE.SphereGeometry(24,16,12),new THREE.MeshBasicMaterial({color:0xffedb0,fog:false}));skyGroup.add(sunMesh);
+const sunGlow=new THREE.Mesh(new THREE.PlaneGeometry(150,150),new THREE.MeshBasicMaterial({transparent:true,opacity:.85,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
+{const gc=document.createElement('canvas');gc.width=gc.height=128;const gg=gc.getContext('2d');const gr=gg.createRadialGradient(64,64,6,64,64,62);gr.addColorStop(0,'rgba(255,236,170,.9)');gr.addColorStop(.4,'rgba(255,210,120,.32)');gr.addColorStop(1,'rgba(255,190,90,0)');gg.fillStyle=gr;gg.fillRect(0,0,128,128);sunGlow.material.map=new THREE.CanvasTexture(gc);}
+skyGroup.add(sunGlow);
+const moonTex=makeTex(64,64,g=>{
+  g.fillStyle='#e8eeff';g.fillRect(0,0,64,64);
+  g.fillStyle='#c6cfe4';
+  [[18,20,7],[40,30,9],[28,44,5],[46,14,4],[12,42,4]].forEach(([x,y,r])=>{g.beginPath();g.arc(x,y,r,0,7);g.fill();});
+  g.fillStyle='#d5dcf0';g.beginPath();g.arc(32,32,30,0,7);g.fill();
+  g.fillStyle='#e8eeff';g.beginPath();g.arc(30,30,28,0,7);g.fill();
+  g.fillStyle='#c6cfe4';
+  [[18,20,7],[40,30,8],[28,44,5],[46,14,4]].forEach(([x,y,r])=>{g.beginPath();g.arc(x,y,r,0,7);g.fill();});
+});
+const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(11,16,12),new THREE.MeshBasicMaterial({map:moonTex,fog:false}));skyGroup.add(moonMesh);
 const moonHalo=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
 {const hc=document.createElement('canvas');hc.width=hc.height=64;const hg=hc.getContext('2d');const gr=hg.createRadialGradient(32,32,4,32,32,31);gr.addColorStop(0,'rgba(200,215,255,.55)');gr.addColorStop(1,'rgba(200,215,255,0)');hg.fillStyle=gr;hg.fillRect(0,0,64,64);moonHalo.material.map=new THREE.CanvasTexture(hc);}
 skyGroup.add(moonHalo);
 
-const cloudMat=new THREE.MeshLambertMaterial({color:0xffffff,transparent:true,opacity:.92,fog:false});
+function makeCloudTex(seed){
+  const c=document.createElement('canvas');c.width=256;c.height=128;
+  const g=c.getContext('2d');
+  const rng=(()=>{let v=seed;return()=>{v=(v*16807)%2147483647;return(v-1)/2147483646;};})();
+  for(let i=0;i<13;i++){
+    const cx=40+rng()*176,cy=52+rng()*40,r=18+rng()*34;
+    const gr=g.createRadialGradient(cx,cy,2,cx,cy,r);
+    gr.addColorStop(0,'rgba(255,255,255,.85)');
+    gr.addColorStop(.6,'rgba(255,255,255,.4)');
+    gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gr;g.beginPath();g.ellipse(cx,cy,r*1.3,r*.75,0,0,7);g.fill();
+  }
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+const cloudTexs=[makeCloudTex(11),makeCloudTex(377),makeCloudTex(913)];
+const cloudMats=cloudTexs.map(t=>new THREE.SpriteMaterial({map:t,transparent:true,opacity:.8,depthWrite:false,fog:false}));
 const clouds=[];
-for(let i=0;i<15;i++){
-  const g=new THREE.Group();
-  const n=randi(3,5);
-  for(let j=0;j<n;j++){const m=new THREE.Mesh(new THREE.BoxGeometry(rand(18,38),rand(4,9),rand(12,24)),cloudMat);m.position.set(j*rand(9,15)-n*5,rand(-2,2),rand(-8,8));g.add(m);}
-  g.position.set(rand(-850,850),rand(95,170),rand(-850,850));
-  g.scale.setScalar(rand(.8,1.5));
-  scene.add(g);clouds.push(g);
+for(let i=0;i<38;i++){
+  const mi=i%3;
+  const sp=new THREE.Sprite(cloudMats[mi]);
+  const big=i<6;
+  const sc=big?rand(380,560):rand(90,230);
+  sp.scale.set(sc,sc*.42,1);
+  sp.position.set(rand(-1250,1250),big?rand(150,260):rand(110,220),rand(-1250,1250));
+  sp.userData={drift:rand(.6,1.6)};
+  scene.add(sp);clouds.push(sp);
 }
 
 {
@@ -4161,7 +4213,7 @@ const WSTATES=[
   {n:'Rain',rain:.8,cloud:.95,w:2},
   {n:'Storm',rain:1,cloud:1,w:1,storm:true}
 ];
-const weather={state:'Clear',rain:0,targetRain:0,cloud:.35,targetCloud:.35,next:rand(40,80),stormy:false,boltNext:999,bolt:0};
+const weather={state:'Clear',rain:0,targetRain:0,cloud:.35,targetCloud:.35,next:rand(40,80),stormy:false,boltNext:999,bolt:0,wind:rand(.5,1.4)};
 let rainbowT=0,rainbowCd=0;
 const RAINBOW_DUR=22;
 const rainbow=new THREE.Group();
@@ -4202,20 +4254,39 @@ function updateWeather(dt){
     if((prevState==='Rain'||prevState==='Storm')&&sel.n==='Clear')rainbowT=RAINBOW_DUR;
     weather.targetRain=sel.rain;weather.targetCloud=sel.cloud;
     weather.stormy=!!sel.storm;
+    weather.wind=rand(.5,1.8);
     weather.next=rand(45,90);
     weather.boltNext=sel.storm?rand(3,9):999;
     if(started&&!dead)subShow(sel.n==='Rain'?'Rain moving in...':sel.n==='Storm'?'STORM rolling in!':sel.n==='Cloudy'?'Clouds gathering...':'Skies clearing up');
   }
   weather.rain+=(weather.targetRain-weather.rain)*Math.min(1,dt*.5);
   weather.cloud+=(weather.targetCloud-weather.cloud)*Math.min(1,dt*.4);
-  cloudMat.opacity=.55+weather.cloud*.42;
+  const snW=Math.sin((timeOfDay-.25)*Math.PI*2);
+  const sunsetF2=Math.exp(-Math.pow(Math.abs(snW)*3.1,2))*smoothstep(-.14,.0,snW);
+  skyU.sunsetF.value=sunsetF2;
+  skyU.haze.value=.3+weather.cloud*.35+weather.rain*.35;
+  const warmC=_v2.set(1,.55,.3);
+  for(const cm of cloudMats){
+    cm.color.copy(cMid).lerp(_dayA.set?_dayA:_dayA,0);
+  }
+  for(const cm of cloudMats){
+    cm.color.copy(cMid).lerp(new THREE.Color(1,.6,.35),sunsetF2*.5);
+    cm.color.lerp(new THREE.Color(0x141b2c),nightF*.85);
+    cm.opacity=(.5+weather.cloud*.45)*(1-nightF*.35);
+  }
+  for(const sp of clouds){
+    sp.position.x+=dt*sp.userData.drift*(2+weather.rain*6);
+    if(sp.position.x>1350)sp.position.x=-1350;
+  }
+  starMat.uniforms.uTime.value=performance.now()/1000;
+  starMat.uniforms.uOp.value=nightF*(1-weather.cloud*.7)*(1-weather.rain);
   if(weather.rain>.04){
     rainMesh.visible=true;
     rainMat.opacity=.12+weather.rain*.4;
     const cx=camera.position.x,cz=camera.position.z,R=46;
     for(let i=0;i<RAINN;i++){
       const d=rainD[i];
-      d.y-=d.sp*dt;d.x+=2.6*dt;
+      d.y-=d.sp*dt;d.x+=(1.4+weather.wind*2.4)*dt;
       if(d.y<groundYAt(cx+d.x,cz+d.z)){d.y=rand(16,28);d.x=rand(-R,R);d.z=rand(-R,R);}
       if(d.x>cx+R)d.x-=R*2;if(d.x<cx-R)d.x+=R*2;
       if(d.z>cz+R)d.z-=R*2;if(d.z<cz-R)d.z+=R*2;
@@ -4293,8 +4364,6 @@ function envUpdate(dt){
     m.emissiveIntensity=.15+nightF*1.7*flick;
   });
   starMat.opacity=nightF*.9;
-  cloudMat.color.copy(C_WHITE).lerp(C_CLOUDN,nightF);
-  clouds.forEach(cl=>{cl.position.x+=dt*2;if(cl.position.x>560)cl.position.x=-560;});
   headSpot.intensity=myCar&&nightF>.2?nightF*160:0;
   if(headSpot.intensity>0){
     const u=myCar.u;
