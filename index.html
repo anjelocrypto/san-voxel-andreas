@@ -1466,6 +1466,59 @@ function genOuterWorld(){
   [pineTrunk,pineT1,pineT2,pineT3].forEach(m=>{
     m.castShadow=true;m.instanceMatrix.needsUpdate=true;scene.add(m);
   });
+  const stTreeT=new THREE.InstancedMesh(BG(.34,1.5,.34),cmat('#6b4a2b'),1100);
+  const stTreeL=new THREE.InstancedMesh(BG(2.1,1.9,2.1),cmat('#4a9a4a'),1100);
+  {
+    let ti=0;
+    for(let i=0;i<=GRIDN;i++){
+      const L=i*CELL-HALF;
+      for(let s=-HALF+12;s<HALF-12;s+=19){
+        const m6=((s+HALF)%CELL+CELL)%CELL;
+        if(m6<13||m6>CELL-13)continue;
+        if(Math.random()<.22)continue;
+        [[L-9,s,0],[L+9,s,0]].forEach(([tx4,tz4])=>{
+          if(ti>=1100)return;
+          const sc=rand(.85,1.25);
+          M.identity();M.setPosition(tx4,.28+.8*sc,tz4);stTreeT.setMatrixAt(ti,M);
+          M.identity();M.setPosition(tx4,.28+2.1*sc,tz4);stTreeL.setMatrixAt(ti,M);
+          ti++;
+        });
+        [[s,L-9,1],[s,L+9,1]].forEach(([tx4,tz4])=>{
+          if(ti>=1100)return;
+          const sc=rand(.85,1.25);
+          M.identity();M.setPosition(tx4,.28+.8*sc,tz4);stTreeT.setMatrixAt(ti,M);
+          M.identity();M.setPosition(tx4,.28+2.1*sc,tz4);stTreeL.setMatrixAt(ti,M);
+          ti++;
+        });
+      }
+    }
+    stTreeT.count=stTreeL.count=ti;
+    stTreeT.castShadow=stTreeL.castShadow=true;
+    stTreeT.instanceMatrix.needsUpdate=stTreeL.instanceMatrix.needsUpdate=true;
+    scene.add(stTreeT);scene.add(stTreeL);
+  }
+  const benchM=new THREE.InstancedMesh(BG(1.9,.1,.5),cmat('#7a5230'),90);
+  const benchL=new THREE.InstancedMesh(BG(1.9,.5,.1),cmat('#7a5230'),90);
+  const planterM=new THREE.InstancedMesh(BG(.9,.6,.9),cmat('#8a6a42'),90);
+  const planterT=new THREE.InstancedMesh(BG(.7,.5,.7),cmat('#4faf46'),90);
+  {
+    let bi2=0;
+    for(const b of blocksMeta){
+      const edge=choice([[0,b.z+19.5],[0,b.z-19.5],[b.x+19.5,b.z],[b.x-19.5,b.z]]);
+      const horiz=Math.abs(edge[2]-b.z)>1;
+      M.identity();M.setPosition(edge[0],.28+.28,edge[1]);benchM.setMatrixAt(bi2,M);
+      M.identity();M.setPosition(edge[0],.28+.5,edge[1]+(horiz?.28:0));benchL.setMatrixAt(bi2,M);
+      const po=[edge[0]+(horiz?2.6:0),edge[1]+(horiz?0:2.6)];
+      M.identity();M.setPosition(po[0],.28+.3,po[1]);planterM.setMatrixAt(bi2,M);
+      M.identity();M.setPosition(po[0],.28+.82,po[1]);planterT.setMatrixAt(bi2,M);
+      bi2++;
+    }
+    benchM.count=benchL.count=planterM.count=planterT.count=bi2;
+    benchM.instanceMatrix.needsUpdate=benchL.instanceMatrix.needsUpdate=true;
+    planterM.instanceMatrix.needsUpdate=planterT.instanceMatrix.needsUpdate=true;
+    benchM.castShadow=planterM.castShadow=true;
+    scene.add(benchM);scene.add(benchL);scene.add(planterM);scene.add(planterT);
+  }
   for(let i=0;i<8;i++){
     const a=i/8*Math.PI*2;
     gableHouse(-500+Math.cos(a)*42,-450+Math.sin(a)*38,rand(6,8),rand(5,7),rand(2.8,3.4),'#6b4a2b','#4a3520',a+Math.PI/2);
@@ -1745,6 +1798,134 @@ function genOuterWorld(){
   const lot=new THREE.Mesh(BG(42,.08,30),cmat('#33353b'));
   lot.position.set(210,.05,210);lot.receiveShadow=true;scene.add(lot);
   for(let i=0;i<6;i++)spawnParked(196+i*5.4,204+(i%2?4:-4),i%2?0:Math.PI);
+  const gateDefs=[
+    [0,-261,0,'LOS VOXEL',18],[0,261,0,'LOS VOXEL',18],
+    [261,-40,Math.PI/2,'LOS VOXEL',18],[-261,80,Math.PI/2,'LOS VOXEL',18],
+    [0,-495,0,'NUEVA VOX',12],[510,-40,Math.PI/2,'PUEBLO POLVO',12]
+  ];
+  for(const [gx,gz,gy2,gname,ghw] of gateDefs){
+    const off=ghw/2+2;
+    const gg=new THREE.Group();gg.position.set(gx,0,gz);gg.rotation.y=gy2;
+    [-off,off].forEach(o=>{
+      const pil=new THREE.Mesh(BG(1.1,5.2,1.1),cmat('#8a8f98'));pil.position.set(o,2.6,0);pil.castShadow=true;gg.add(pil);
+      const cap=new THREE.Mesh(BG(1.4,.3,1.4),darkMat);cap.position.set(o,5.35,0);gg.add(cap);
+    });
+    const beam=new THREE.Mesh(BG(off*2+1.2,1.1,.9),cmat('#6b7280'));beam.position.y=4.7;beam.castShadow=true;gg.add(beam);
+    const gtxt=makeTex(512,64,g=>{
+      g.fillStyle='#14141a';g.fillRect(0,0,512,64);
+      g.fillStyle='#ffd23a';g.font='bold 40px Arial Black,Arial';g.textAlign='center';g.textBaseline='middle';
+      g.fillText(gname,256,34);
+    },false);
+    [-1,1].forEach(s=>{
+      const tp=new THREE.Mesh(new THREE.PlaneGeometry(off*2,1.05),new THREE.MeshLambertMaterial({map:gtxt,emissiveMap:gtxt,emissive:new THREE.Color(0xffffff),emissiveIntensity:.35,side:s>0?THREE.FrontSide:THREE.BackSide}));
+      tp.position.set(0,4.7,s*.47);
+      if(s<0)tp.rotation.y=Math.PI;
+      gg.add(tp);
+    });
+    scene.add(gg);
+  }
+  const nvPad=new THREE.InstancedMesh(BG(26,.24,26),cmat('#9aa0a6'),nvBlocks.length);
+  nvBlocks.forEach((b,i)=>{
+    M.identity();M.setPosition(b[0],.12,b[1]);nvPad.setMatrixAt(i,M);
+  });
+  nvPad.instanceMatrix.needsUpdate=true;nvPad.receiveShadow=true;scene.add(nvPad);
+  const nvBench=new THREE.InstancedMesh(BG(1.9,.1,.5),cmat('#31445c'),8);
+  for(let i=0;i<8;i++){
+    const a=i/8*Math.PI*2;
+    Q.setFromEuler(E.set(0,-a,0));S.set(1,1,1);
+    M.compose(new THREE.Vector3(Math.cos(a)*6.5,.35,-620+Math.sin(a)*6.5),Q,S);
+    nvBench.setMatrixAt(i,M);
+  }
+  nvBench.instanceMatrix.needsUpdate=true;scene.add(nvBench);
+  const cwBars=[];
+  for(const sx of[-62,0,62])for(const sz of[-745,-620,-495]){
+    for(let b2=-1;b2<=1;b2++){
+      cwBars.push([sx+b2*1.9,sz-9.5,0],[sx+b2*1.9,sz+9.5,0],[sx-9.5,sz+b2*1.9,Math.PI/2],[sx+9.5,sz+b2*1.9,Math.PI/2]);
+    }
+  }
+  [[-560,80],[510,-40]].forEach(([jx,jz])=>{
+    for(let b2=-1;b2<=1;b2++)cwBars.push([jx+b2*1.9,jz-8.5,0],[jx+b2*1.9,jz+8.5,0]);
+  });
+  const cwM=new THREE.InstancedMesh(BG(1.1,.05,2.6),cmat('#d8d8d2'),cwBars.length);
+  cwBars.forEach((p,i)=>{
+    Q.setFromEuler(E.set(0,p[2],0));S.set(1,1,1);
+    M.compose(new THREE.Vector3(p[0],.12,p[1]),Q,S);cwM.setMatrixAt(i,M);
+  });
+  cwM.instanceMatrix.needsUpdate=true;scene.add(cwM);
+  const moorM=new THREE.InstancedMesh(new THREE.CylinderGeometry(.16,.18,.9,7),darkMat,10);
+  for(let i=0;i<10;i++){
+    M.identity();M.setPosition(-880-(i%5)*18,.9,i%2?70:90);moorM.setMatrixAt(i,M);
+  }
+  moorM.instanceMatrix.needsUpdate=true;scene.add(moorM);
+  const ppWall=new THREE.InstancedMesh(BG(1,.9,.3),cmat('#c9a96e'),14);
+  {
+    const walls=[[-30,0,0],[-30,3,0],[30,0,0],[30,3,0]];
+    let wI=0;
+    for(let i=0;i<7;i++){
+      const hx=548+ (i%4)*44, hz=(i<4?-118:38);
+      M.identity();M.setPosition(hx,.45,hz);ppWall.setMatrixAt(wI++,M);
+    }
+    ppWall.count=wI;ppWall.instanceMatrix.needsUpdate=true;scene.add(ppWall);
+  }
+  const slM=new THREE.InstancedMesh(BG(.06,.06,1),new THREE.MeshLambertMaterial({color:0xffe9b0,emissive:new THREE.Color(0xffd27f),emissiveIntensity:.9}),3);
+  [[560,-41],[597,-41],[634,-41]].forEach((p,i)=>{
+    M.identity();M.setPosition(p[0],2.32,p[1]);slM.setMatrixAt(i,M);
+  });
+  slM.instanceMatrix.needsUpdate=true;scene.add(slM);
+  const cowPen=new THREE.Group();cowPen.position.set(64,0,664);
+  const penRect=[[-6,-4],[6,-4],[6,4],[-6,4]];
+  for(let s2=0;s2<4;s2++){
+    const [ax2,az2]=penRect[s2],[bx5,bz5]=penRect[(s2+1)%4];
+    const len2=Math.hypot(bx5-ax2,bz5-az2);
+    const rail=new THREE.Mesh(BG(s2%2?.12:len2,.1,.12),cmat('#8a6a42'));
+    rail.position.set((ax2+bx5)/2,.85,(az2+bz5)/2);
+    if(s2%2)rail.scale.set(1,1,len2);else rail.scale.set(len2,1,1);
+    cowPen.add(rail);
+    const n2=Math.floor(len2/3);
+    for(let i2=0;i2<=n2;i2++){
+      const post=new THREE.Mesh(BG(.14,1,.14),cmat('#6b4a2b'));
+      post.position.set(ax2+(bx5-ax2)*i2/n2,.5,az2+(bz5-az2)*i2/n2);cowPen.add(post);
+    }
+  }
+  for(let ci3=0;ci3<4;ci3++){
+    const cow=new THREE.Group();
+    const cx4=cowPen.position.x+rand(-4,4),cz4=cowPen.position.z+rand(-2.5,2.5);
+    cow.position.set(0,0,0);
+    const body=new THREE.Mesh(BG(1,1,2.2),cmat('#e8e4da'));body.position.y=1.15;body.castShadow=true;cow.add(body);
+    [[-.3,.4],[.25,-.6]].forEach(([px5,pz5])=>{
+      const patch=new THREE.Mesh(BG(.5,.5,.7),cmat('#23252b'));patch.position.set(px5*1.02,.05,pz5);cow.add(patch);
+    });
+    const head=new THREE.Mesh(BG(.6,.65,.6),cmat('#e8e4da'));head.position.set(0,1.5,1.35);cow.add(head);
+    const snout=new THREE.Mesh(BG(.4,.3,.15),cmat('#e0b8b8'));snout.position.set(0,1.35,1.72);cow.add(snout);
+    [[-.32,.8],[.32,.8],[-.32,-.8],[.32,-.8]].forEach(([lx2,lz2])=>{
+      const leg=new THREE.Mesh(BG(.22,.75,.22),cmat('#d8d4ca'));leg.position.set(lx2,.37,lz2);cow.add(leg);
+    });
+    cow.position.set(cx4,0,cz4);cow.rotation.y=rand(0,6.28);
+    cowPen.add(cow);
+  }
+  scene.add(cowPen);
+  aabbs.push({x0:56,x1:72,z0:658,z1:670,h:1.2});
+  const rsSegs=[];
+  for(let z2=-540;z2<=540;z2+=40){
+    rsSegs.push({x:riverXat(z2)+22,z:z2});
+  }
+  const rsM=new THREE.InstancedMesh(BG(8,.14,43),matAsphalt()[0],rsSegs.length-1);
+  const rsPost=new THREE.InstancedMesh(BG(.14,.8,.14),cmat('#e8e8e2'),rsSegs.length*2);
+  for(let i=0;i<rsSegs.length-1;i++){
+    const a=rsSegs[i],b3=rsSegs[i+1];
+    const mx=(a.x+b3.x)/2,mz=(a.z+b3.z)/2;
+    const yaw=Math.atan2(b3.x-a.x,b3.z-a.z);
+    Q.setFromEuler(E.set(0,yaw,0));S.set(1,1,1);
+    M.compose(new THREE.Vector3(mx,.07,mz),Q,S);rsM.setMatrixAt(i,M);
+    [-1,1].forEach(s2=>{
+      const px6=Math.cos(yaw)*4.4,pz6=-Math.sin(yaw)*4.4;
+      M.compose(new THREE.Vector3(mx+px6,.5,mz+pz6),Q,S);rsPost.setMatrixAt(i*2+(s2>0?1:0),M);
+    });
+  }
+  rsM.count=rsSegs.length-1;rsPost.count=rsSegs.length*2;
+  rsM.receiveShadow=true;
+  rsM.instanceMatrix.needsUpdate=rsPost.instanceMatrix.needsUpdate=true;
+  scene.add(rsM);scene.add(rsPost);
   for(const hw of highways){
     for(let i=0;i<3;i++){
       const t=rand(hw.from+30,hw.to-30);
@@ -2337,7 +2518,7 @@ function spawnParked(x,z,h){
   cars.push(c);scene.add(c.g);
   return c;
 }
-for(let i=0;i<12;i++)spawnTrafficCar();
+for(let i=0;i<16;i++)spawnTrafficCar();
 spawnParked(34.7,150,Math.PI);
 for(let i=0;i<12;i++){
   const axis=Math.random()<.5?'x':'z';
@@ -2375,7 +2556,7 @@ function spawnPed(nearPlayer){
 }
 {
   let pn=0,tries=0;
-  while(pn<22&&tries<300){
+  while(pn<26&&tries<400){
     tries++;
     if(spawnPed(false))pn++;
   }
@@ -3460,7 +3641,7 @@ function carCollisions(){
   }
 }
 function updatePeds(dt){
-  if(peds.length<22&&Math.random()<dt*4)spawnPed(true);
+  if(peds.length<26&&Math.random()<dt*4)spawnPed(true);
   for(let i=peds.length-1;i>=0;i--){
     const p=peds[i],g=p.h.g,gp=g.position;
     if(p.state==='dead'){
