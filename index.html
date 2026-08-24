@@ -121,14 +121,15 @@ const smoothstep=(e0,e1,x)=>{const t=clamp((x-e0)/(e1-e0),0,1);return t*t*(3-2*t
 const CELL=58,BLOCK=44,ROADW=14,GRIDN=9,HALF=261,CITYR=300,SAND_R=930;
 const WORLD_R=880;
 const highways=[
-  {axis:'z',c:0,from:-500,to:-261,w:18},
-  {axis:'x',c:80,from:-505,to:-261,w:18},
+  {axis:'z',c:0,from:-580,to:-261,w:18},
+  {axis:'x',c:80,from:-520,to:-261,w:18},
   {axis:'x',c:-40,from:261,to:510,w:18},
   {axis:'z',c:0,from:261,to:620,w:18},
   {axis:'x',c:-450,from:-560,to:0,w:14},
   {axis:'x',c:560,from:0,to:505,w:14},
   {axis:'z',c:505,from:-580,to:560,w:14},
-  {axis:'x',c:200,from:-505,to:505,w:14},
+  {axis:'x',c:200,from:-610,to:505,w:14},
+  {axis:'z',c:-610,from:80,to:200,w:10},
   {axis:'x',c:-580,from:-70,to:505,w:14},
   {axis:'z',c:640,from:-120,to:-40,w:12},
   {axis:'x',c:-120,from:505,to:640,w:12}
@@ -139,7 +140,9 @@ for(let rz=-920;rz<=920;rz+=20)riverPts.push({x:380+Math.sin(rz*.006)*60,z:rz});
 const extraLamps=[];
 const hwCars=[],hwBoats=[],cars=[],windmills=[],cowsArr=[],neonLightPts=[];
 const townRoadPts=[
-  [0,-495],[0,-560],[0,-620],[0,-690],[0,-745],[-62,-620],[62,-620],
+  [0,-495],[0,-560],[0,-620],[0,-690],[0,-745],[-62,-620],[62,-620],[0,-580],[300,-580],[-300,-580],
+  [200,200],[-200,200],[505,200],[-450,200],[370,-40],[370,560],[80,560],[300,560],
+  [505,-400],[505,400],[640,-80],
   [-560,80],[-610,80],[-700,80],[-610,20],[-610,140],
   [520,-40],[620,-40],[700,-40],[560,-75],[660,-5],
   [0,530],[0,600],[40,640],
@@ -1190,7 +1193,7 @@ function genCity(){
   }
 }
 
-const dirtSegs=[[-472,-450,176,7],[-560,-175,7,552],[-532,100,56,7]];
+const dirtSegs=[[-560,-175,7,552],[-532,100,56,7]];
 const townStreets=[[-62,-620,12,250],[0,-620,12,250],[62,-620,12,250],[0,-745,148,12],[0,-620,148,12],[0,-495,148,12],[-610,80,190,12],[610,-40,190,12]];
 function surfFactor(x,z){
   for(const b of bridgeRects)if(x>b.x0&&x<b.x1&&z>b.z0&&z<b.z1)return .95;
@@ -1649,8 +1652,9 @@ function genOuterWorld(){
     let ci=0;
     for(let fx=0;fx<2;fx++){
       const ox=fx?-14:-84;
-      for(let r2=0;r2<34&&ci<1700;r2++)for(let c2=0;c2<25&&ci<1700;c2++){
-        M.identity();M.setPosition(ox+4+c2*2.5,0+.32,604+r2*2.9);
+      const rows2=fx?22:34,z0b=fx?628:604;
+      for(let r2=0;r2<rows2&&ci<1700;r2++)for(let c2=0;c2<25&&ci<1700;c2++){
+        M.identity();M.setPosition(ox+4+c2*2.5,0+.32,z0b+r2*2.9);
         cropM.setMatrixAt(ci,M);ci++;
       }
     }
@@ -1722,6 +1726,12 @@ function genOuterWorld(){
       else if(placed<150){x=rand(480,620);z=rand(180,340);}
       else{x=rand(-470,-320);z=rand(210,380);}
       if(circleBlocked(x,z,2))continue;
+      let nearHW=false;
+      for(const hw of highways){
+        if(hw.axis==='z'){if(Math.abs(x-hw.c)<hw.w/2+4&&z>hw.from-4&&z<hw.to+4)nearHW=true;}
+        else if(Math.abs(z-hw.c)<hw.w/2+4&&x>hw.from-4&&x<hw.to+4)nearHW=true;
+      }
+      if(nearHW)continue;
       const s=rand(.8,1.5);
       M.identity();M.setPosition(x,.85*s,z);pineTrunk.setMatrixAt(placed,M);
       M.identity();M.setPosition(x,(1.6+1)*s,z);pineT1.setMatrixAt(placed,M);
@@ -1887,7 +1897,7 @@ function genOuterWorld(){
   const stumpM=new THREE.InstancedMesh(new THREE.CylinderGeometry(.34,.4,.32,7),cmat('#6b4a2b'),26);
   const logM=new THREE.InstancedMesh((()=>{const g=new THREE.CylinderGeometry(.22,.22,1.6,7);g.rotateZ(Math.PI/2);return g;})(),cmat('#7a5a38'),16);
   const riverXat=z=>380+Math.sin(z*.006)*60;
-  const townC=[[0,-620,180],[-610,80,170],[620,-40,180],[0,650,190],[-500,-450,190],[-250,250,72]];
+  const townC=[[0,-620,180],[-610,80,170],[620,-40,180],[0,650,190],[-500,-450,190],[-250,264,72]];
   const bushCols=[0x3f8f3f,0x4a9a4a,0x357f35,0x57a057];
   const flowCols=[0xff6b8a,0xffd23a,0xffffff,0xb04fff,0xff8a5c];
   let bI=0,rI=0,tI=0,fI=0,tuI=0,sI=0,lI=0;
@@ -1949,16 +1959,16 @@ function genOuterWorld(){
   scene.add(bushM);scene.add(rockM);scene.add(scatT);scene.add(scatL);
   scene.add(flowM);scene.add(tuftM);scene.add(stumpM);scene.add(logM);
   const lakeW=new THREE.Mesh(new THREE.CircleGeometry(45,30),new THREE.MeshLambertMaterial({color:0x1d5e8f,emissive:new THREE.Color(0x0a2a44),emissiveIntensity:.3}));
-  lakeW.rotation.x=-Math.PI/2;lakeW.position.set(-250,.03,250);scene.add(lakeW);
+  lakeW.rotation.x=-Math.PI/2;lakeW.position.set(-250,.03,264);scene.add(lakeW);
   const lakeSand=new THREE.Mesh(new THREE.RingGeometry(45,54,30),cmat('#c9b47e'));
-  lakeSand.rotation.x=-Math.PI/2;lakeSand.position.set(-250,.025,250);scene.add(lakeSand);
+  lakeSand.rotation.x=-Math.PI/2;lakeSand.position.set(-250,.025,264);scene.add(lakeSand);
   const reedM=new THREE.InstancedMesh(BG(.14,1.1,.14),cmat('#4a8f3f'),44);
   for(let i=0;i<44;i++){
     const a=rand(0,6.28),r2=rand(44,50);
-    M.identity();M.setPosition(-250+Math.cos(a)*r2,.6,250+Math.sin(a)*r2);reedM.setMatrixAt(i,M);
+    M.identity();M.setPosition(-250+Math.cos(a)*r2,.6,264+Math.sin(a)*r2);reedM.setMatrixAt(i,M);
   }
   reedM.instanceMatrix.needsUpdate=true;scene.add(reedM);
-  const ldock=new THREE.Mesh(BG(1.4,.14,7),cmat('#7a5a38'));ldock.position.set(-236,.12,250);scene.add(ldock);
+  const ldock=new THREE.Mesh(BG(1.4,.14,7),cmat('#7a5a38'));ldock.position.set(-236,.12,264);scene.add(ldock);
   const makeWindmill=(x,z)=>{
     const gp=new THREE.Group();gp.position.set(x,0,z);
     const t1=new THREE.Mesh(BG(1.6,5.5,1.6),cmat('#d8d5cc'));t1.position.y=2.75;t1.castShadow=true;gp.add(t1);
@@ -2296,6 +2306,12 @@ const mmStatic=document.createElement('canvas');mmStatic.width=1024;mmStatic.hei
   for(const r of mapRects){g.fillStyle=r.c;g.fillRect(W(r.x),W(r.z),r.w*S,r.h*S);}
   g.fillStyle='#2e3138';
   for(const b of buildings)g.fillRect(W(b.x-b.w/2),W(b.z-b.d/2),b.w*S,b.d*S);
+  g.fillStyle='#f2f2ea';
+  g.font='bold 13px Arial';
+  g.textAlign='center';
+  [['LOS VOXEL',0,40],['NUEVA VOX',0,-620],['PUERTO VOX',-610,60],['PUEBLO POLVO',620,-90],['CUBESTEAD',0,690],['PINE HOLLOW',-500,-500]].forEach(([nm,tx2,tz2])=>{
+    g.fillText(nm,W(tx2),W(tz2));
+  });
 }
 
 function makeHuman(o){
