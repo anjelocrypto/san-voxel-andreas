@@ -3320,6 +3320,26 @@ const audio={
     if(!this.rotorGain)return;
     this.rotorGain.gain.setTargetAtTime(active?clamp(.11*(1-dist/160),0,.11):0,this.ctx.currentTime,.3);
   },
+  initWeatherAudio(){
+    if(this.rainGain||!this.ctx)return;
+    const C=this.ctx;
+    const s=C.createBufferSource();s.buffer=this.noise;s.loop=true;
+    const f=C.createBiquadFilter();f.type='lowpass';f.frequency.value=900;
+    this.rainGain=C.createGain();this.rainGain.gain.value=0;
+    s.connect(f);f.connect(this.rainGain);this.rainGain.connect(this.master);s.start();
+    const w=C.createBufferSource();w.buffer=this.noise;w.loop=true;
+    const wf=C.createBiquadFilter();wf.type='bandpass';wf.frequency.value=280;wf.Q.value=.7;
+    this.windGain=C.createGain();this.windGain.gain.value=0;
+    w.connect(wf);wf.connect(this.windGain);this.windGain.connect(this.master);w.start();
+  },
+  setWeatherAudio(rain,wind){
+    if(!this.ctx)return;
+    this.initWeatherAudio();
+    if(!this.rainGain)return;
+    const t=this.ctx.currentTime;
+    this.rainGain.gain.setTargetAtTime(clamp(rain*.15,0,.15),t,.5);
+    this.windGain.gain.setTargetAtTime(clamp(wind*rain*.09+.02*wind,0,.11),t,.7);
+  },
   toggleMute(){
     if(!this.ctx)return;
     this.muted=!this.muted;
@@ -3922,7 +3942,8 @@ function updateMyCar(dt){
   const prevVf=vf;
   const hb=!!keys.Space;
   const thr=(keys.KeyW?1:0)-(keys.KeyS?1:0);
-  const sf=surfFactor(g.position.x,g.position.z);
+  let sf=surfFactor(g.position.x,g.position.z);
+  if(sf>.85)sf*=1-weather.rain*.12;
   const gearP=Math.abs(vf)/u.vmax*5;
   const gearFrac=gearP-Math.floor(gearP);
   if(thr>0){
@@ -4546,6 +4567,7 @@ for(let i=0;i<RAINN;i++)rainD.push({x:rand(-45,45),y:rand(0,28),z:rand(-45,45),s
 const _rq=new THREE.Quaternion(),_re=new THREE.Euler(.12,0,.08),_rs=new THREE.Vector3(1,1,1),_rm=new THREE.Matrix4();
 _rq.setFromEuler(_re);
 function updateWeather(dt){
+  const windEff=weather.wind+(weather.gust||0)*2.6;
   weather.next-=dt;
   if(weather.next<=0){
     const cur=WSTATES.find(s=>s.n===weather.state)||WSTATES[0];
@@ -4559,6 +4581,7 @@ function updateWeather(dt){
     weather.targetRain=sel.rain;weather.targetCloud=sel.cloud;
     weather.stormy=!!sel.storm;
     weather.wind=rand(.5,1.8);
+    weather.gust=0;weather.gustT=rand(2,6);
     weather.next=rand(45,90);
     weather.boltNext=sel.storm?rand(3,9):999;
     if(started&&!dead)subShow(sel.n==='Rain'?'Rain moving in...':sel.n==='Storm'?'STORM rolling in!':sel.n==='Cloudy'?'Clouds gathering...':'Skies clearing up');
@@ -4572,6 +4595,7 @@ function updateWeather(dt){
   const warmC=_v2.set(1,.55,.3);
   for(const cm of cloudMats){
     cm.color.copy(cMid).lerp(new THREE.Color(1,.6,.35),sunsetF2*.5);
+    cm.color.lerp(new THREE.Color(0x2e353d),clamp(weather.rain*.65,0,.6));
     cm.color.lerp(new THREE.Color(0x141b2c),nightF*.85);
     cm.opacity=(.5+weather.cloud*.45)*(1-nightF*.35);
   }
@@ -4587,7 +4611,7 @@ function updateWeather(dt){
     const cx=camera.position.x,cz=camera.position.z,R=46;
     for(let i=0;i<RAINN;i++){
       const d=rainD[i];
-      d.y-=d.sp*dt;d.x+=(1.4+weather.wind*2.4)*dt;
+      d.y-=d.sp*dt;d.x+=(1.4+windEff*2.6)*dt;
       if(d.y<groundYAt(cx+d.x,cz+d.z)){d.y=rand(16,28);d.x=rand(-R,R);d.z=rand(-R,R);}
       if(d.x>cx+R)d.x-=R*2;if(d.x<cx-R)d.x+=R*2;
       if(d.z>cz+R)d.z-=R*2;if(d.z<cz-R)d.z+=R*2;
@@ -4609,6 +4633,13 @@ function updateWeather(dt){
       setTimeout(()=>audio.noiseHit(clamp(.2+weather.rain*.35,0,.55),160,1.2),rand(250,1300));
     }
   }
+  weather.gustT-=dt;
+  if(weather.gustT<=0&&(weather.stormy||weather.rain>.5)){
+    weather.gustT=rand(2.5,6.5);
+    weather.gust=1;
+    shake=Math.min(shake+.06,.15);
+  }
+  weather.gust=Math.max(0,(weather.gust||0)-dt*.9);
   weather.bolt=Math.max(0,weather.bolt-dt*1.3);
   if(rainbowT>0){
     rainbowT-=dt;
@@ -4630,6 +4661,14 @@ function envUpdate(dt){
   skyU.top.value.copy(cTop);
   skyU.mid.value.copy(cMid);
   skyU.bot.value.copy(cMid);
+  const _rainC=new THREE.Color(0x767f8c).multiplyScalar(.3+.7*dayF);
+  skyU.top.value.lerp(_rainC,clamp(weather.rain*.6,0,.75));
+  skyU.mid.value.lerp(_rainC,clamp(weather.rain*.55,0,.7));
+  skyU.bot.value.lerp(_rainC,clamp(weather.rain*.5,0,.65));
+  if(weather.bolt>0){
+    skyU.mid.value.lerp(C_WHITE,weather.bolt*.55);
+    skyU.top.value.lerp(C_WHITE,weather.bolt*.4);
+  }
   scene.fog.color.copy(cFog);
   scene.background.copy(cMid);
   _v1.set(camera.position.x,0,camera.position.z);
@@ -4652,11 +4691,10 @@ function envUpdate(dt){
     skyU.sunDir.value.copy(_v2);
     skyU.sunCol.value.set(0xcdd6ff).multiplyScalar(.3);
     moonMesh.position.copy(_v1).addScaledVector(_v2,1200);
-    moonMesh.visible=true;
+    moonMesh.visible=weather.rain<.7;
     sunMesh.visible=false;
     sunGlow.material.opacity=0;
   }
-  if(sn>-.1&&sn<.15)moonMesh.visible=sn<.05;
   sunL.target.position.copy(_v1);
   hemi.intensity=.2+dayF*.72;
   lampHeadMat.emissiveIntensity=nightF*1.5;
@@ -4681,6 +4719,7 @@ function envUpdate(dt){
   for(const c of cops)if(c.state!=='dead'){any=true;nd=Math.min(nd,c.h.g.position.distanceTo(playerH.g.position));}
   for(const c of cars)if(c.u.ai==='cop'){any=true;nd=Math.min(nd,c.g.position.distanceTo(playerH.g.position));}
   audio.setSiren(any&&started&&!dead,nd);
+  audio.setWeatherAudio(started?weather.rain:0,weather.wind+(weather.gust||0)*2.6);
   radio.tick();
   if(sigMesh){
     const ph=(performance.now()/1000)%16;
@@ -4707,7 +4746,9 @@ function envUpdate(dt){
   scene.fog.color.lerp(_wetFog,clamp(wet*.5,0,.6));
   scene.background.lerp(_wetFog,clamp(wet*.3,0,.4));
   sunL.intensity*=1-wet*.5;
+  sunL.intensity+=weather.bolt*7;
   hemi.intensity*=1-wet*.22;
+  hemi.intensity+=weather.bolt*1.6;
   starMat.opacity*=1-wet;
   boltEl.style.opacity=(weather.bolt*1.6>1?1:weather.bolt*1.6).toFixed(2);
   if(bloomPass)bloomPass.strength=.22+nightF*.4+weather.bolt*1.4;
@@ -4770,7 +4811,7 @@ function envUpdate(dt){
     }
   }
   moonHalo.position.copy(moonMesh.position);
-  moonHalo.material.opacity=nightF*.55;
+  moonHalo.material.opacity=nightF*.55*(1-weather.rain);
   lampAssignT-=dt;
   if(lampAssignT<=0&&lampWorldPts.length){
     lampAssignT=.5;
@@ -4851,7 +4892,8 @@ function updateHUD(){
   const wk=wn+am;
   if(hudCache.w!==wk){wNameEl.textContent=wn;ammoEl.textContent=am;hudCache.w=wk;}
   const hrs=Math.floor(timeOfDay*24),mins=Math.floor(timeOfDay*24%1*60);
-  const ck=String(hrs).padStart(2,'0')+':'+String(mins).padStart(2,'0');
+  let ck=String(hrs).padStart(2,'0')+':'+String(mins).padStart(2,'0');
+  ck+=' · '+weather.state.toUpperCase();
   if(hudCache.c!==ck){clockEl.textContent=ck;hudCache.c=ck;}
   xhair.style.display=(player.weapon==='gun'&&mode==='foot'&&!dead)?'block':'none';
   if(mode==='foot'&&!dead){
