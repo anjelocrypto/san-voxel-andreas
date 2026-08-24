@@ -107,6 +107,7 @@ import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 
 const rand=(a,b)=>a+Math.random()*(b-a);
 const randi=(a,b)=>Math.floor(rand(a,b+1));
@@ -165,18 +166,20 @@ scene.background=new THREE.Color(0x9db8d2);
 const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,2400);
 let composer=null,bloomPass=null;
 try{
-  composer=new EffectComposer(renderer);
+  composer=new EffectComposer(renderer,new THREE.WebGLRenderTarget(innerWidth,innerHeight,{samples:4,type:THREE.HalfFloatType}));
   composer.addPass(new RenderPass(scene,camera));
   bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.32,.75,.85);
   composer.addPass(bloomPass);
   const gradePass=new ShaderPass({
-    uniforms:{tDiffuse:{value:null},uVig:{value:.5},uSat:{value:1.1},uCon:{value:1.07},uLift:{value:new THREE.Vector3(.012,.015,.024)},uGain:{value:new THREE.Vector3(1.05,1.0,.965)}},
+    uniforms:{tDiffuse:{value:null},uVig:{value:.34},uSat:{value:1.1},uCon:{value:1.07},uLift:{value:new THREE.Vector3(.012,.015,.024)},uGain:{value:new THREE.Vector3(1.05,1.0,.965)}},
     vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader:'varying vec2 vUv;uniform sampler2D tDiffuse;uniform float uVig;uniform float uSat;uniform float uCon;uniform vec3 uLift;uniform vec3 uGain;void main(){vec4 c=texture2D(tDiffuse,vUv);vec3 col=c.rgb*uGain+uLift;float l=dot(col,vec3(.299,.587,.114));col=mix(vec3(l),col,uSat);col=(col-.5)*uCon+.5;float d=distance(vUv,vec2(.5));col*=1.0-uVig*smoothstep(.32,.9,d);gl_FragColor=vec4(col,c.a);}'
   });
   composer.addPass(gradePass);
   composer.addPass(new OutputPass());
 }catch(e){composer=null;}
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),.04).texture;
 
 
 const hemi=new THREE.HemisphereLight(0xbfd8ff,0x44503c,0.9);scene.add(hemi);
@@ -226,9 +229,9 @@ skyGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1500,24,12),skyMat));
   skyGroup.add(new THREE.Points(g,starMat));
 }
 const sunMesh=new THREE.Mesh(new THREE.SphereGeometry(24,16,12),new THREE.MeshBasicMaterial({color:0xffedb0,fog:false}));skyGroup.add(sunMesh);
-const sunGlow=new THREE.Mesh(new THREE.PlaneGeometry(150,150),new THREE.MeshBasicMaterial({transparent:true,opacity:.85,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
+const sunGlow=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,opacity:.85,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
 {const gc=document.createElement('canvas');gc.width=gc.height=128;const gg=gc.getContext('2d');const gr=gg.createRadialGradient(64,64,6,64,64,62);gr.addColorStop(0,'rgba(255,236,170,.9)');gr.addColorStop(.4,'rgba(255,210,120,.32)');gr.addColorStop(1,'rgba(255,190,90,0)');gg.fillStyle=gr;gg.fillRect(0,0,128,128);sunGlow.material.map=new THREE.CanvasTexture(gc);}
-skyGroup.add(sunGlow);
+sunGlow.scale.set(170,170,1);skyGroup.add(sunGlow);
 const moonTex=makeTex(64,64,g=>{
   g.fillStyle='#e8eeff';g.fillRect(0,0,64,64);
   g.fillStyle='#c6cfe4';
@@ -239,9 +242,9 @@ const moonTex=makeTex(64,64,g=>{
   [[18,20,7],[40,30,8],[28,44,5],[46,14,4]].forEach(([x,y,r])=>{g.beginPath();g.arc(x,y,r,0,7);g.fill();});
 });
 const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(11,16,12),new THREE.MeshBasicMaterial({map:moonTex,fog:false}));skyGroup.add(moonMesh);
-const moonHalo=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
+const moonHalo=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,opacity:0,depthWrite:false,fog:false,blending:THREE.AdditiveBlending}));
 {const hc=document.createElement('canvas');hc.width=hc.height=64;const hg=hc.getContext('2d');const gr=hg.createRadialGradient(32,32,4,32,32,31);gr.addColorStop(0,'rgba(200,215,255,.55)');gr.addColorStop(1,'rgba(200,215,255,0)');hg.fillStyle=gr;hg.fillRect(0,0,64,64);moonHalo.material.map=new THREE.CanvasTexture(hc);}
-skyGroup.add(moonHalo);
+moonHalo.scale.set(55,55,1);skyGroup.add(moonHalo);
 
 function makeCloudTex(seed){
   const c=document.createElement('canvas');c.width=256;c.height=128;
@@ -314,12 +317,13 @@ function makeTex(w,h,draw,pixel=true){
   const t=new THREE.CanvasTexture(c);
   if(pixel){t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;}
   t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   return t;
 }
 
 const roofMat=new THREE.MeshLambertMaterial({color:0x3a3d42});
 const curbMat=new THREE.MeshLambertMaterial({color:0x9aa0a6});
-const glassMat=new THREE.MeshPhongMaterial({color:0x18242f,shininess:80});
+const glassMat=new THREE.MeshStandardMaterial({color:0x18242f,metalness:.9,roughness:.14,envMapIntensity:1.25});
 const tireMat=new THREE.MeshLambertMaterial({color:0x14161a});
 const darkMat=new THREE.MeshLambertMaterial({color:0x1d2025});
 const lampHeadMat=new THREE.MeshLambertMaterial({color:0x777777,emissive:new THREE.Color(0xffd980),emissiveIntensity:0});
@@ -470,6 +474,9 @@ function matAsphalt(){
     g.fillRect(29,0,4,44);g.fillRect(29,64,4,44);
     g.fillStyle='rgba(235,235,235,.65)';
     g.fillRect(2,0,3,128);g.fillRect(59,0,3,128);
+    g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=1;
+    g.beginPath();g.moveTo(10,0);g.lineTo(22,40);g.lineTo(14,78);g.lineTo(26,128);g.stroke();
+    g.beginPath();g.moveTo(50,10);g.lineTo(42,60);g.lineTo(52,110);g.stroke();
   });
   t.repeat.set(1,26);
   const t2=t.clone();t2.needsUpdate=true;t2.center.set(.5,.5);t2.rotation=Math.PI/2;t2.repeat.set(26,1);
@@ -2259,8 +2266,8 @@ const carGeo={
   doorBand:new THREE.BoxGeometry(2.18,.5,1.72),
   decal:(()=>{const g=new THREE.PlaneGeometry(1.2,.44);g.rotateY(Math.PI/2);return g;})()
 };
-const hubMat=new THREE.MeshLambertMaterial({color:0xcfd3d8});
-const chromeMat=new THREE.MeshLambertMaterial({color:0x9aa0a6});
+const hubMat=new THREE.MeshStandardMaterial({color:0xcfd3d8,metalness:.85,roughness:.25,envMapIntensity:1});
+const chromeMat=new THREE.MeshStandardMaterial({color:0x9aa0a6,metalness:.9,roughness:.2,envMapIntensity:1});
 const plateTex=makeTex(64,28,g=>{
   g.fillStyle='#e8e8e2';g.fillRect(0,0,64,28);
   g.fillStyle='#222';g.font='bold 14px monospace';g.textAlign='center';g.textBaseline='middle';
@@ -2301,8 +2308,8 @@ function makeCar(color,isCop,type){
   }
   const S=CAR_SPECS[type]||CAR_SPECS.sedan;
   const g=new THREE.Group();g.rotation.order='YXZ';
-  const bodyMat=new THREE.MeshLambertMaterial({color});
-  const skirtMat=new THREE.MeshLambertMaterial({color:new THREE.Color(color).multiplyScalar(.55)});
+  const bodyMat=new THREE.MeshStandardMaterial({color,metalness:.55,roughness:.38,envMapIntensity:.75});
+  const skirtMat=new THREE.MeshStandardMaterial({color:new THREE.Color(color).multiplyScalar(.55),metalness:.4,roughness:.55,envMapIntensity:.6});
   const tailMat=tailLMat.clone();
   const revMat=new THREE.MeshLambertMaterial({color:0xdddddd,emissive:new THREE.Color(0xffffff),emissiveIntensity:.12});
   const paint=[];
@@ -4199,7 +4206,7 @@ const puddleM=new THREE.InstancedMesh(puddleGeo,puddleMat,70);
       if(Math.random()<.5){x=L+rand(-3,3);z=s5;}else{x=s5;z=L+rand(-3,3);}
     }else{x=rand(-WORLD_R+40,WORLD_R-40);z=rand(-WORLD_R+40,WORLD_R-40);}
     if(circleBlocked(x,z,.8))continue;
-    M.makeScale(rand(1.4,3),1,rand(1,2.2));M.setPosition(x,.095,z);
+    M.makeScale(rand(1.4,3),1,rand(1,2.2));M.setPosition(x,i<40?.105:.02);
     puddleM.setMatrixAt(pi3++,M);
   }
   puddleM.count=pi3;puddleM.instanceMatrix.needsUpdate=true;scene.add(puddleM);
@@ -4266,9 +4273,6 @@ function updateWeather(dt){
   skyU.sunsetF.value=sunsetF2;
   skyU.haze.value=.3+weather.cloud*.35+weather.rain*.35;
   const warmC=_v2.set(1,.55,.3);
-  for(const cm of cloudMats){
-    cm.color.copy(cMid).lerp(_dayA.set?_dayA:_dayA,0);
-  }
   for(const cm of cloudMats){
     cm.color.copy(cMid).lerp(new THREE.Color(1,.6,.35),sunsetF2*.5);
     cm.color.lerp(new THREE.Color(0x141b2c),nightF*.85);
@@ -4363,7 +4367,6 @@ function envUpdate(dt){
     const flick=.82+.18*Math.sin(performance.now()/40+i*7);
     m.emissiveIntensity=.15+nightF*1.7*flick;
   });
-  starMat.opacity=nightF*.9;
   headSpot.intensity=myCar&&nightF>.2?nightF*160:0;
   if(headSpot.intensity>0){
     const u=myCar.u;
@@ -4468,7 +4471,6 @@ function envUpdate(dt){
   }
   moonHalo.position.copy(moonMesh.position);
   moonHalo.material.opacity=nightF*.55;
-  moonHalo.lookAt(camera.position);
   lampAssignT-=dt;
   if(lampAssignT<=0&&lampWorldPts.length){
     lampAssignT=.5;
