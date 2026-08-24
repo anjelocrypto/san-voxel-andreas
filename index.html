@@ -4345,6 +4345,8 @@ function envUpdate(dt){
     skyU.sunCol.value.copy(C_SUNWARM).multiplyScalar(clamp(sn+.15,0,1));
     sunMesh.position.copy(_v1).addScaledVector(sunDirV,1200);
     sunMesh.visible=true;
+    sunGlow.position.copy(sunMesh.position);
+    sunGlow.material.opacity=.85;
   }else{
     sunL.color.copy(C_MOON);
     sunL.intensity=.22;
@@ -4355,6 +4357,7 @@ function envUpdate(dt){
     moonMesh.position.copy(_v1).addScaledVector(_v2,1200);
     moonMesh.visible=true;
     sunMesh.visible=false;
+    sunGlow.material.opacity=0;
   }
   if(sn>-.1&&sn<.15)moonMesh.visible=sn<.05;
   sunL.target.position.copy(_v1);
