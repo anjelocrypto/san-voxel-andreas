@@ -490,7 +490,7 @@ function matAsphalt(){
 const aabbs=[],buildings=[],blocksMeta=[],mapRects=[],slabRects=[],parkRects=[],parkFlowers=[];
 const ramps=[{x:-87,z:-58,a:Math.PI,len:15,wid:7,rise:3},{x:87,z:116,a:0,len:15,wid:7,rise:3},{x:29,z:-174,a:Math.PI,len:15,wid:7,rise:2.6}];
 let neonMats=[],tallestH=0,tallestPos={x:0,z:0},tallestW=20;
-let sigMesh=null,sigIdxZ=[],sigIdxX=[],SIG={ns:'g',ew:'g',key:-1},nightF=0,poolMat=null,lampWorldPts=[];
+let sigMesh=null,sigIdxZ=[],sigIdxX=[],nvSigMesh=null,nvSigZIdx=[],nvSigXIdx=[],SIG={ns:'g',ew:'g',key:-1},nightF=0,poolMat=null,lampWorldPts=[];
 const lampLights=[];
 for(let i=0;i<6;i++){
   const L=new THREE.PointLight(0xffd9a0,0,26,1.8);
@@ -835,12 +835,6 @@ function genCity(){
     });
     snI++;
   }
-  const arrowTex=makeTex(64,64,g2=>{
-    g2.clearRect(0,0,64,64);
-    g2.fillStyle='#d8d8d0';
-    g2.fillRect(28,26,8,30);
-    g2.beginPath();g2.moveTo(32,6);g2.lineTo(48,28);g2.lineTo(16,28);g2.closePath();g2.fill();
-  },false);
   const arrowM=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.6,2.2),new THREE.MeshLambertMaterial({map:arrowTex,transparent:true,depthWrite:false}),16);
   const stopM=new THREE.InstancedMesh(BG(3.4,.04,.35),cmat('#d8d8d0'),16);
   {
@@ -2135,6 +2129,26 @@ function genOuterWorld(){
     const st2=new THREE.Mesh(BG(sx2,.08,sz2),matAsphalt()[0]);
     st2.position.set(cx2,.04,cz2);st2.receiveShadow=true;scene.add(st2);
   }
+  nvSigMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.5,.5,.5),new THREE.MeshBasicMaterial({color:0xffffff}),18);
+  const nvHouse=new THREE.InstancedMesh(BG(.68,1,.46),darkMat,18);
+  {
+    let ni=0;
+    for(const sx of[-62,0,62])for(const sz of[-745,-620,-495]){
+      [[sx+7.4,sz-7.4],[sx-7.4,sz+7.4]].forEach(([px7,pz7],k)=>{
+        Q.setFromEuler(E.set(0,0,0));S.set(1,1,1);
+        M.compose(new THREE.Vector3(px7,3.4,pz7),Q,S);nvSigMesh.setMatrixAt(ni,M);
+        nvSigMesh.setColorAt(ni,new THREE.Color(0x2ecc4f));
+        if(k===0)nvSigZIdx.push(ni);else nvSigXIdx.push(ni);
+        M.compose(new THREE.Vector3(px7,3.4,pz7),Q,new THREE.Vector3(1,1,1));
+        nvHouse.setMatrixAt(ni,M);
+        ni++;
+      });
+    }
+    nvSigMesh.instanceMatrix.needsUpdate=true;
+    if(nvSigMesh.instanceColor)nvSigMesh.instanceColor.needsUpdate=true;
+    nvHouse.instanceMatrix.needsUpdate=true;nvHouse.castShadow=true;
+    scene.add(nvSigMesh);scene.add(nvHouse);
+  }
   const townDash=[];
   for(const sx of[-62,0,62])for(let z2=-740;z2<-500;z2+=8)townDash.push([sx,z2,0]);
   for(const sz2 of[-745,-620,-495])for(let x2=-114;x2<114;x2+=8)townDash.push([x2,sz2,Math.PI/2]);
@@ -2262,6 +2276,8 @@ function genOuterWorld(){
   }
   const rsM=new THREE.InstancedMesh(BG(8,.14,43),matAsphalt()[0],rsSegs.length-1);
   const rsPost=new THREE.InstancedMesh(BG(.14,.8,.14),cmat('#e8e8e2'),rsSegs.length*2);
+  const rsDashM=new THREE.InstancedMesh(BG(.28,.04,2.2),new THREE.MeshLambertMaterial({color:0xd8c26a}),rsSegs.length);
+  const rsRailM=new THREE.InstancedMesh(BG(1,.35,.1),cmat('#8a8f98'),rsSegs.length);
   for(let i=0;i<rsSegs.length-1;i++){
     const a=rsSegs[i],b3=rsSegs[i+1];
     const mx=(a.x+b3.x)/2,mz=(a.z+b3.z)/2;
@@ -2277,6 +2293,120 @@ function genOuterWorld(){
   rsM.receiveShadow=true;
   rsM.instanceMatrix.needsUpdate=rsPost.instanceMatrix.needsUpdate=true;
   scene.add(rsM);scene.add(rsPost);
+  for(let i=0;i<rsSegs.length-1;i++){
+    const a=rsSegs[i],b3=rsSegs[i+1];
+    const mx=(a.x+b3.x)/2,mz=(a.z+b3.z)/2;
+    const yaw=Math.atan2(b3.x-a.x,b3.z-a.z);
+    Q.setFromEuler(E.set(0,yaw,0));S.set(1,1,1);
+    M.compose(new THREE.Vector3(mx,.12,mz),Q,S);rsDashM.setMatrixAt(i,M);
+    const px7=Math.cos(yaw)*4.4,pz7=-Math.sin(yaw)*4.4;
+    M.compose(new THREE.Vector3(mx+px7,.14,mz+pz7),Q,S);rsRailM.setMatrixAt(i,M);
+  }
+  rsDashM.count=rsRailM.count=rsSegs.length-1;
+  rsDashM.instanceMatrix.needsUpdate=rsRailM.instanceMatrix.needsUpdate=true;
+  scene.add(rsDashM);scene.add(rsRailM);
+  const hwEdge=new THREE.InstancedMesh(BG(1,.04,.16),cmat('#d8d8d0'),highways.length*2);
+  const hwWear=new THREE.InstancedMesh(BG(1,.02,.5),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.1,depthWrite:false}),highways.length*4);
+  {
+    let ei=0,wi3=0;
+    for(const hw of highways){
+      const len=hw.to-hw.from;
+      const mx=(hw.from+hw.to)/2;
+      for(const s2 of[-1,1]){
+        Q.setFromEuler(E.set(0,hw.axis==='z'?0:Math.PI/2,0));S.set(1,1,1);
+        if(hw.axis==='z'){
+          M.compose(new THREE.Vector3(hw.c+s2*(hw.w/2-.45),.115,mx),Q,S);
+        }else{
+          M.compose(new THREE.Vector3(mx,.115,hw.c+s2*(hw.w/2-.45)),Q,S);
+        }
+        hwEdge.setMatrixAt(ei++,M);
+      }
+      for(const lane of[-1.7,1.7]){
+        for(const s2 of[-1,1]){
+          Q.setFromEuler(E.set(0,hw.axis==='z'?0:Math.PI/2,0));S.set(1,1,1);
+          if(hw.axis==='z'){
+            M.compose(new THREE.Vector3(hw.c+lane+s2*.55,.105,mx),Q,S);
+          }else{
+            M.compose(new THREE.Vector3(mx,.105,hw.c+lane+s2*.55),Q,S);
+          }
+          hwWear.setMatrixAt(wi3++,M);
+        }
+      }
+    }
+    hwEdge.count=ei;hwWear.count=wi3;
+    S.set(1,1,1);
+    for(let i=0;i<ei;i++){
+      hwEdge.getMatrixAt(i,M);
+      const sx4=M.elements[0],sz4=M.elements[10];
+      hwEdge.setMatrixAt(i,M);
+    }
+    hwEdge.instanceMatrix.needsUpdate=hwWear.instanceMatrix.needsUpdate=true;
+    scene.add(hwEdge);scene.add(hwWear);
+  }
+  const dirtRut=new THREE.InstancedMesh(BG(1,.03,.4),cmat('#8a6a42'),dirtSegs.length*2);
+  {
+    let ri3=0;
+    for(const d2 of dirtSegs){
+      for(const s2 of[-1,1]){
+        M.makeScale(d2[2],1,.4);M.setPosition(d2[0]+s2*1.5,.045,d2[1]);
+        dirtRut.setMatrixAt(ri3++,M);
+      }
+    }
+    dirtRut.count=ri3;dirtRut.instanceMatrix.needsUpdate=true;scene.add(dirtRut);
+  }
+  const oilTex=makeTex(64,64,g2=>{
+    g2.clearRect(0,0,64,64);
+    for(let i=0;i<5;i++){
+      const gr3=g2.createRadialGradient(32+rand(-8,8),32+rand(-8,8),2,32,32,20+i*3);
+      gr3.addColorStop(0,'rgba(10,10,14,.5)');
+      gr3.addColorStop(1,'rgba(10,10,14,0)');
+      g2.fillStyle=gr3;g2.fillRect(0,0,64,64);
+    }
+  },false);
+  const oilM=new THREE.InstancedMesh(new THREE.PlaneGeometry(2.6,2),new THREE.MeshBasicMaterial({map:oilTex,transparent:true,depthWrite:false}),40);
+  {
+    let oi=0;
+    for(let i=0;i<40;i++){
+      const line=randi(0,GRIDN),L7=line*CELL-HALF;
+      const s7=rand(-HALF+14,HALF-14);
+      const m7=((s7+HALF)%CELL+CELL)%CELL;
+      if(m7<11||m7>CELL-11)continue;
+      Q.setFromEuler(E.set(-Math.PI/2,0,rand(0,6.28)));S.set(1,1,1);
+      if(Math.random()<.5)M.compose(new THREE.Vector3(L7+rand(-2.5,2.5),.118,s7),Q,S);
+      else M.compose(new THREE.Vector3(s7,.118,L7+rand(-2.5,2.5)),Q,S);
+      oilM.setMatrixAt(oi++,M);
+    }
+    oilM.count=oi;oilM.instanceMatrix.needsUpdate=true;scene.add(oilM);
+  }
+  const cityStop=new THREE.InstancedMesh(BG(3.2,.04,.35),cmat('#d8d8d0'),200);
+  {
+    let si4=0;
+    for(let i2=0;i2<=GRIDN;i2++)for(const sgn2 of[1,-1]){
+      const L8=i2*CELL-HALF;
+      for(const lane of[-2.2,2.2]){
+        if(Math.random()<.3)continue;
+        if(Math.random()<.5){
+          M.identity();M.setPosition(L8+lane,.115,L8+sgn2*11.5);cityStop.setMatrixAt(si4++,M);
+        }else{
+          Q.setFromEuler(E.set(0,Math.PI/2,0));S.set(1,1,1);
+          M.compose(new THREE.Vector3(L8+sgn2*11.5,.115,L8+lane),Q,S);cityStop.setMatrixAt(si4++,M);
+        }
+      }
+    }
+    cityStop.count=si4;cityStop.instanceMatrix.needsUpdate=true;scene.add(cityStop);
+  }
+  const cityArrow=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.5,2),new THREE.MeshLambertMaterial({map:arrowTex,transparent:true,depthWrite:false}),60);
+  {
+    let ai3=0;
+    for(let i2=1;i2<=GRIDN;i2+=2)for(const sgn2 of[1,-1]){
+      const L9=i2*CELL-HALF;
+      const t9=L9+sgn2*17;
+      Q.setFromEuler(E.set(-Math.PI/2,0,0));S.set(1,1,1);
+      M.compose(new THREE.Vector3(L9-1.7,.115,t9),Q,S);cityArrow.setMatrixAt(ai3++,M);
+      if(ai3<60){M.compose(new THREE.Vector3(L9+1.7,.115,t9),Q,S);cityArrow.setMatrixAt(ai3++,M);}
+    }
+    cityArrow.count=ai3;cityArrow.instanceMatrix.needsUpdate=true;scene.add(cityArrow);
+  }
   for(const hw of highways){
     for(let i=0;i<3;i++){
       const t=rand(hw.from+30,hw.to-30);
@@ -2605,6 +2735,12 @@ const busDestTex=makeTex(256,48,g=>{
 },false);
 const busDestMat=new THREE.MeshLambertMaterial({map:busDestTex,emissiveMap:busDestTex,emissive:new THREE.Color(0xffffff),emissiveIntensity:.5});
 neonMats.push(busDestMat);
+const arrowTex=makeTex(64,64,g2=>{
+  g2.clearRect(0,0,64,64);
+  g2.fillStyle='#d8d8d0';
+  g2.fillRect(28,26,8,30);
+  g2.beginPath();g2.moveTo(32,6);g2.lineTo(48,28);g2.lineTo(16,28);g2.closePath();g2.fill();
+},false);
 function makeCar(color,isCop,type){
   type=type||'sedan';
   if(!color){
@@ -4805,6 +4941,11 @@ function envUpdate(dt){
       sigIdxZ.forEach(i=>sigMesh.setColorAt(i,cz));
       sigIdxX.forEach(i=>sigMesh.setColorAt(i,cx));
       sigMesh.instanceColor.needsUpdate=true;
+      if(nvSigMesh){
+        nvSigZIdx.forEach(i=>nvSigMesh.setColorAt(i,cz));
+        nvSigXIdx.forEach(i=>nvSigMesh.setColorAt(i,cx));
+        nvSigMesh.instanceColor.needsUpdate=true;
+      }
     }
   }
   updateWeather(dt);
