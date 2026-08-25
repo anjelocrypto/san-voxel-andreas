@@ -132,7 +132,11 @@ const highways=[
   {axis:'z',c:-610,from:80,to:200,w:10},
   {axis:'x',c:-580,from:-70,to:505,w:14},
   {axis:'z',c:640,from:-120,to:-40,w:12},
-  {axis:'x',c:-120,from:505,to:640,w:12}
+  {axis:'x',c:-120,from:505,to:640,w:12},
+  {axis:'x',c:-300,from:-300,to:300,w:14},
+  {axis:'z',c:300,from:-300,to:300,w:14},
+  {axis:'x',c:300,from:-300,to:300,w:14},
+  {axis:'z',c:-300,from:-300,to:300,w:14}
 ];
 const bridgeRects=[{x0:352,x1:428,z0:-53,z1:-27,y:.18},{x0:338,x1:402,z0:547,z1:573,y:.18},{x0:406,x1:466,z0:188,z1:212,y:.18},{x0:372,x1:428,z0:-592,z1:-568,y:.18}];;
 const hwJunctions=[];
@@ -147,12 +151,14 @@ for(let a=0;a<highways.length;a++)for(let b=a+1;b<highways.length;b++){
 }
 const riverPts=[];
 for(let rz=-920;rz<=920;rz+=20)riverPts.push({x:380+Math.sin(rz*.006)*60,z:rz});
+const riverXat=z=>380+Math.sin(z*.006)*60;
 const extraLamps=[];
 const hwCars=[],hwBoats=[],cars=[],windmills=[],cowsArr=[],neonLightPts=[];
 const townRoadPts=[
   [0,-495],[0,-560],[0,-620],[0,-690],[0,-745],[-62,-620],[62,-620],[0,-580],[300,-580],[-300,-580],
   [200,200],[-200,200],[505,200],[-450,200],[370,-40],[370,560],[80,560],[300,560],
-  [505,-400],[505,400],[640,-80],
+  [505,-400],[505,400],[640,-80],[0,-300],[300,0],[0,300],[-300,0],[-300,-300],[300,300],[300,-300],[-300,300],
+  [352,-540],[366,-400],[392,200],[344,560],[352,-200],[400,400],
   [-560,80],[-610,80],[-700,80],[-610,20],[-610,140],
   [520,-40],[620,-40],[700,-40],[560,-75],[660,-5],
   [0,530],[0,600],[40,640],
@@ -1402,6 +1408,46 @@ function genOuterWorld(){
     M.compose(new THREE.Vector3(p[0],.32,p[1]),Q,S);gpostM.setMatrixAt(i,M);
   });
   gpostM.instanceMatrix.needsUpdate=true;scene.add(gpostM);
+  const reflM=new THREE.InstancedMesh(BG(.12,.12,.06),new THREE.MeshLambertMaterial({color:0x554422,emissive:new THREE.Color(0xffcc66),emissiveIntensity:.9}),railPostPts.length);
+  railPostPts.forEach((p,i)=>{
+    Q.setFromEuler(E.set(0,p[2],0));S.set(1,1,1);
+    M.compose(new THREE.Vector3(p[0],.78,p[1]),Q,S);reflM.setMatrixAt(i,M);
+  });
+  reflM.instanceMatrix.needsUpdate=true;scene.add(reflM);
+  const wbSegs=[];
+  for(let z2=-520;z2<=520;z2+=40){
+    wbSegs.push({x:riverXat(z2)-22,z:z2});
+  }
+  const wbM=new THREE.InstancedMesh(BG(8,.14,43),matAsphalt()[0],wbSegs.length-1);
+  const wbDash=new THREE.InstancedMesh(BG(.26,.04,2.2),new THREE.MeshLambertMaterial({color:0xd8c26a}),wbSegs.length-1);
+  for(let i=0;i<wbSegs.length-1;i++){
+    const a=wbSegs[i],b4=wbSegs[i+1];
+    const mx=(a.x+b4.x)/2,mz=(a.z+b4.z)/2;
+    const yaw=Math.atan2(b4.x-a.x,b4.z-a.z);
+    Q.setFromEuler(E.set(0,yaw,0));S.set(1,1,1);
+    M.compose(new THREE.Vector3(mx,.07,mz),Q,S);wbM.setMatrixAt(i,M);
+    M.compose(new THREE.Vector3(mx,.12,mz),Q,S);wbDash.setMatrixAt(i,M);
+  }
+  wbM.count=wbDash.count=wbSegs.length-1;
+  wbM.receiveShadow=true;
+  wbM.instanceMatrix.needsUpdate=wbDash.instanceMatrix.needsUpdate=true;
+  scene.add(wbM);scene.add(wbDash);
+  const townSide=[];
+  for(const sx of[-62,0,62])for(const s2 of[-1,1])townSide.push([sx+s2*7.5,-620,3,252]);
+  for(const sz of[-745,-620,-495])for(const s2 of[-1,1])townSide.push([0,sz+s2*7.5,138,3]);
+  for(const s2 of[-1,1])townSide.push([-610,80+s2*7.5,192,3]);
+  for(const s2 of[-1,1])townSide.push([615,-40+s2*7.5,7,192]);
+  const tsM=new THREE.InstancedMesh(BG(1,.24,1),cmat('#9aa0a6'),townSide.length);
+  townSide.forEach((t2,i)=>{
+    M.makeScale(t2[2],1,t2[3]);M.setPosition(t2[0],.12,t2[1]);
+    tsM.setMatrixAt(i,M);
+  });
+  tsM.instanceMatrix.needsUpdate=true;tsM.receiveShadow=true;scene.add(tsM);
+  const ringCorner=new THREE.InstancedMesh(BG(16,.16,16),matAsphalt()[0],4);
+  [[-300,-300],[300,-300],[-300,300],[300,300]].forEach((c2,i)=>{
+    M.identity();M.setPosition(c2[0],.02,c2[1]);ringCorner.setMatrixAt(i,M);
+  });
+  ringCorner.instanceMatrix.needsUpdate=true;ringCorner.receiveShadow=true;scene.add(ringCorner);
   const signDefs=[
     [0,-300,'NUEVA VOX',0],[0,-475,'NUEVA VOX',Math.PI],
     [-300,80,'PUERTO VOX',Math.PI/2],[-472,80,'PUERTO VOX',-Math.PI/2],
@@ -1904,7 +1950,6 @@ function genOuterWorld(){
   const logM=new THREE.InstancedMesh((()=>{const g=new THREE.CylinderGeometry(.22,.22,1.6,7);g.rotateZ(Math.PI/2);return g;})(),cmat('#7a5a38'),30);
   const birchT=new THREE.InstancedMesh(BG(.28,1.7,.28),cmat('#dcdcd2'),140);
   const birchL=new THREE.InstancedMesh(BG(2.2,2.1,2.2),cmat('#8fce6f'),140);
-  const riverXat=z=>380+Math.sin(z*.006)*60;
   const townC=[[0,-620,180],[-610,80,170],[620,-40,180],[0,650,190],[-500,-450,190],[-250,264,66]];
   const bushCols=[0x3f8f3f,0x4a9a4a,0x357f35,0x57a057];
   const flowCols=[0xff6b8a,0xffd23a,0xffffff,0xb04fff,0xff8a5c];
