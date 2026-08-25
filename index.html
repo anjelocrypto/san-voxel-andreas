@@ -707,6 +707,25 @@ function genCity(){
     leafM.setColorAt(i,new THREE.Color(choice([0x3f8f3f,0x4faf46,0x357f35,0x5aa848])));
   });
   if(leafM.instanceColor)leafM.instanceColor.needsUpdate=true;
+  const parkTop=new THREE.InstancedMesh(new THREE.BoxGeometry(2,1.7,2),new THREE.MeshLambertMaterial({color:0xffffff}),treeL.length);
+  const parkBr=new THREE.InstancedMesh(new THREE.BoxGeometry(1.5,.18,.18),cmat('#5f452c'),treeL.length*2);
+  {
+    let bi3=0;
+    treeT.forEach((t,i)=>{
+      Q.setFromEuler(E.set(rand(-.2,.2),rand(0,6.28),rand(-.2,.2)));S.setScalar(t.s*.75);
+      M.compose(new THREE.Vector3(t.x,2.2+3.6*t.s,t.z),Q,S);parkTop.setMatrixAt(i,M);
+      parkTop.setColorAt(i,new THREE.Color(choice([0x5abf5a,0x6acf6a,0x4aaf4a,0x6fbf4f])));
+      [-1,1].forEach(s2=>{
+        Q.setFromEuler(E.set(0,rand(0,6.28),s2*.65));S.set(1,1,1);
+        M.compose(new THREE.Vector3(t.x+s2*.5,.28+2.5*t.s,t.z),Q,S);parkBr.setMatrixAt(bi3++,M);
+      });
+    });
+    parkTop.count=treeL.length;parkBr.count=bi3;
+    if(parkTop.instanceColor)parkTop.instanceColor.needsUpdate=true;
+    parkTop.castShadow=parkBr.castShadow=true;
+    parkTop.instanceMatrix.needsUpdate=parkBr.instanceMatrix.needsUpdate=true;
+    scene.add(parkTop);scene.add(parkBr);
+  }
   trunkM.castShadow=leafM.castShadow=true;
   trunkM.instanceMatrix.needsUpdate=leafM.instanceMatrix.needsUpdate=true;
   scene.add(trunkM);scene.add(leafM);
@@ -1561,6 +1580,15 @@ function genOuterWorld(){
     nvTreeT.count=nvTreeL.count=ti;
     nvTreeT.castShadow=nvTreeL.castShadow=true;
     nvTreeT.instanceMatrix.needsUpdate=nvTreeL.instanceMatrix.needsUpdate=true;
+    const nvTop=new THREE.InstancedMesh(BG(1.3,1.2,1.3),new THREE.MeshLambertMaterial({color:0xffffff}),14);
+    for(let i=0;i<ti;i++){
+      nvTreeL.getMatrixAt(i,M);
+      M.elements[13]+=1.3;
+      nvTop.setMatrixAt(i,M);
+      nvTop.setColorAt(i,new THREE.Color(choice([0x5abf5a,0x6acf6a])));
+    }
+    if(nvTop.instanceColor)nvTop.instanceColor.needsUpdate=true;
+    nvTop.instanceMatrix.needsUpdate=true;nvTop.castShadow=true;scene.add(nvTop);
     scene.add(nvTreeT);scene.add(nvTreeL);
   }
   let nvTall=null;
@@ -1708,7 +1736,10 @@ function genOuterWorld(){
         cropM.setMatrixAt(ci,M);ci++;
       }
     }
-    cropM.count=ci;cropM.instanceMatrix.needsUpdate=true;scene.add(cropM);
+    cropM.count=ci;cropM.instanceMatrix.needsUpdate=true;
+  for(let k2=0;k2<ci;k2++)cropM.setColorAt(k2,new THREE.Color(k2%3===1?'#9abf4f':'#7fae3f'));
+  if(cropM.instanceColor)cropM.instanceColor.needsUpdate=true;
+  scene.add(cropM);
   }
   const fenceP=new THREE.InstancedMesh(BG(.14,1.1,.14),cmat('#6b4a2b'),120);
   const fenceR=new THREE.InstancedMesh(BG(1,.09,.07),cmat('#8a6a42'),240);
@@ -1799,8 +1830,11 @@ function genOuterWorld(){
   });
   const stTreeT=new THREE.InstancedMesh(BG(.42,2,.42),cmat('#6b4a2b'),1100);
   const stTreeL=new THREE.InstancedMesh(BG(2.8,2.6,2.8),cmat('#4a9a4a'),1100);
+  const stTop=new THREE.InstancedMesh(new THREE.BoxGeometry(1.9,1.7,1.9),new THREE.MeshLambertMaterial({color:0xffffff}),1100);
+  const stBr=new THREE.InstancedMesh(new THREE.BoxGeometry(1.3,.16,.16),cmat('#5f452c'),2200);
   {
-    let ti=0;
+    let ti=0,bi4=0;
+    const stPts=[];
     for(let i=0;i<=GRIDN;i++){
       const L=i*CELL-HALF;
       for(let s=-HALF+12;s<HALF-12;s+=19){
@@ -1812,6 +1846,12 @@ function genOuterWorld(){
           const sc=rand(.85,1.25);
           M.identity();M.setPosition(tx4,.28+1*sc,tz4);stTreeT.setMatrixAt(ti,M);
           M.identity();M.setPosition(tx4,.28+2.7*sc,tz4);stTreeL.setMatrixAt(ti,M);
+          M.identity();M.setPosition(tx4,.28+4.4*sc,tz4);stTop.setMatrixAt(ti,M);
+          stTop.setColorAt(ti,new THREE.Color(choice([0x5abf5a,0x6acf6a,0x4aaf4a])));
+          [-1,1].forEach(s3=>{
+            Q.setFromEuler(E.set(0,rand(0,6.28),s3*.7));S.set(1,1,1);
+            M.compose(new THREE.Vector3(tx4+s3*.45,.28+2.2*sc,tz4),Q,S);stBr.setMatrixAt(bi4++,M);
+          });
           ti++;
         });
         [[s,L-9,1],[s,L+9,1]].forEach(([tx4,tz4])=>{
@@ -1819,14 +1859,22 @@ function genOuterWorld(){
           const sc=rand(.85,1.25);
           M.identity();M.setPosition(tx4,.28+1*sc,tz4);stTreeT.setMatrixAt(ti,M);
           M.identity();M.setPosition(tx4,.28+2.7*sc,tz4);stTreeL.setMatrixAt(ti,M);
+          M.identity();M.setPosition(tx4,.28+4.4*sc,tz4);stTop.setMatrixAt(ti,M);
+          stTop.setColorAt(ti,new THREE.Color(choice([0x5abf5a,0x6acf6a,0x4aaf4a])));
+          [-1,1].forEach(s3=>{
+            Q.setFromEuler(E.set(0,rand(0,6.28),s3*.7));S.set(1,1,1);
+            M.compose(new THREE.Vector3(tx4+s3*.45,.28+2.2*sc,tz4),Q,S);stBr.setMatrixAt(bi4++,M);
+          });
           ti++;
         });
       }
     }
-    stTreeT.count=stTreeL.count=ti;
-    stTreeT.castShadow=stTreeL.castShadow=true;
+    stTreeT.count=stTreeL.count=stTop.count=ti;stBr.count=bi4;
+    if(stTop.instanceColor)stTop.instanceColor.needsUpdate=true;
+    stTreeT.castShadow=stTreeL.castShadow=stTop.castShadow=stBr.castShadow=true;
     stTreeT.instanceMatrix.needsUpdate=stTreeL.instanceMatrix.needsUpdate=true;
-    scene.add(stTreeT);scene.add(stTreeL);
+    stTop.instanceMatrix.needsUpdate=stBr.instanceMatrix.needsUpdate=true;
+    scene.add(stTreeT);scene.add(stTreeL);scene.add(stTop);scene.add(stBr);
   }
   const benchM=new THREE.InstancedMesh(BG(1.9,.1,.5),cmat('#7a5230'),90);
   const benchL=new THREE.InstancedMesh(BG(1.9,.5,.1),cmat('#7a5230'),90);
@@ -1923,6 +1971,16 @@ function genOuterWorld(){
   }
   orchT.castShadow=orchL.castShadow=true;
   orchT.instanceMatrix.needsUpdate=orchL.instanceMatrix.needsUpdate=true;
+  const orchTop=new THREE.InstancedMesh(BG(1.5,1.3,1.5),new THREE.MeshLambertMaterial({color:0xffffff}),12);
+  orchL.getMatrixAt;
+  for(let i=0;i<12;i++){
+    orchL.getMatrixAt(i,M);
+    M.elements[13]+=1.2;
+    orchTop.setMatrixAt(i,M);
+    orchTop.setColorAt(i,new THREE.Color(choice([0x6acf6a,0x7fd67f])));
+  }
+  if(orchTop.instanceColor)orchTop.instanceColor.needsUpdate=true;
+  orchTop.instanceMatrix.needsUpdate=true;orchTop.castShadow=true;scene.add(orchTop);
   scene.add(orchT);scene.add(orchL);
   const woodP=new THREE.InstancedMesh(BG(1.1,.28,.28),cmat('#8a6a42'),24);
   for(let i=0;i<24;i++){
@@ -1941,15 +1999,19 @@ function genOuterWorld(){
   lantP.instanceMatrix.needsUpdate=lantL.instanceMatrix.needsUpdate=true;
   scene.add(lantP);scene.add(lantL);
   const bushM=new THREE.InstancedMesh(BG(1.2,.9,1.2),cmat('#3f8f3f'),920);
+  const bushTopM=new THREE.InstancedMesh(BG(.7,.6,.7),cmat('#4a9a4a'),920);
   const rockM=new THREE.InstancedMesh(BG(1,.8,1),cmat('#7d8087'),260);
   const scatT=new THREE.InstancedMesh(BG(.5,2,.5),cmat('#6b4a2b'),900);
   const scatL=new THREE.InstancedMesh(BG(3,2.8,3),cmat('#4a9a4a'),900);
+  const scatTop=new THREE.InstancedMesh(BG(2.1,1.8,2.1),new THREE.MeshLambertMaterial({color:0xffffff}),900);
   const flowM=new THREE.InstancedMesh(BG(.18,.32,.18),new THREE.MeshLambertMaterial({color:0xffffff}),700);
   const tuftM=new THREE.InstancedMesh(BG(.36,.6,.36),cmat('#5aa848'),1300);
+  const tuftM2=new THREE.InstancedMesh(BG(.36,.6,.36),cmat('#4a9a3f'),1300);
   const stumpM=new THREE.InstancedMesh(new THREE.CylinderGeometry(.34,.4,.32,7),cmat('#6b4a2b'),50);
   const logM=new THREE.InstancedMesh((()=>{const g=new THREE.CylinderGeometry(.22,.22,1.6,7);g.rotateZ(Math.PI/2);return g;})(),cmat('#7a5a38'),30);
   const birchT=new THREE.InstancedMesh(BG(.28,1.7,.28),cmat('#dcdcd2'),140);
   const birchL=new THREE.InstancedMesh(BG(2.2,2.1,2.2),cmat('#8fce6f'),140);
+  const birchTop=new THREE.InstancedMesh(BG(1.6,1.5,1.6),cmat('#ffffff'),140);
   const townC=[[0,-620,180],[-610,80,170],[620,-40,180],[0,650,190],[-500,-450,190],[-250,264,66]];
   const bushCols=[0x3f8f3f,0x4a9a4a,0x357f35,0x57a057];
   const flowCols=[0xff6b8a,0xffd23a,0xffffff,0xb04fff,0xff8a5c];
@@ -1999,23 +2061,38 @@ function genOuterWorld(){
     if(circleBlocked(x,z,1))continue;
     const roll=Math.random();
     if(roll<.3&&bI<920){
-      M.identity();M.setPosition(x,.45,z);bushM.setMatrixAt(bI,M);
-      bushM.setColorAt(bI,new THREE.Color(choice(bushCols)));bI++;
+      const bs=rand(.7,1.5);
+      M.identity();M.setPosition(x,.45*bs/1.2+.15,z);bushM.setMatrixAt(bI,M);
+      M.identity();M.setPosition(x,.45*bs/1.2+.15+.55*bs,z);bushTopM.setMatrixAt(bI,M);
+      M.makeScale(bs,bs*.8,bs);M.setPosition(x,.15,z);
+      bushM.setMatrixAt(bI,M);
+      bushM.setColorAt(bI,new THREE.Color(choice(bushCols)));
+      bushTopM.setColorAt(bI,new THREE.Color(choice(bushCols)));bI++;
     }else if(roll<.4&&rI<260){
-      M.identity();M.setPosition(x,.3,z);rockM.setMatrixAt(rI++,M);
+      const rs=rand(.6,1.7);
+      Q.setFromEuler(E.set(0,rand(0,6.28),rand(-.15,.15)));S.set(rs,rs*.7,rs);
+      M.compose(new THREE.Vector3(x,.25*rs,z),Q,S);rockM.setMatrixAt(rI++,M);
     }else if(roll<.62&&tI<900){
       Q.setFromEuler(E.set(0,rand(0,6.28),0));S.set(1,1,1);
       M.compose(new THREE.Vector3(x,1,z),Q,S);scatT.setMatrixAt(tI,M);
-      M.compose(new THREE.Vector3(x,3.1,z),Q,S);scatL.setMatrixAt(tI++,M);
+      M.compose(new THREE.Vector3(x,3.1,z),Q,S);scatL.setMatrixAt(tI,M);
+      M.compose(new THREE.Vector3(x,4.5,z),Q,S);scatTop.setMatrixAt(tI,M);
+      scatTop.setColorAt(tI,new THREE.Color(choice([0x5abf5a,0x6acf6a,0x4aaf4a])));
+      tI++;
     }else if(roll<.7&&bi2<140){
       Q.setFromEuler(E.set(0,rand(0,6.28),0));S.set(1,1,1);
       M.compose(new THREE.Vector3(x,.85,z),Q,S);birchT.setMatrixAt(bi2,M);
-      M.compose(new THREE.Vector3(x,2.6,z),Q,S);birchL.setMatrixAt(bi2++,M);
+      M.compose(new THREE.Vector3(x,2.6,z),Q,S);birchL.setMatrixAt(bi2,M);
+      M.compose(new THREE.Vector3(x,3.9,z),Q,S);birchTop.setMatrixAt(bi2,M);
+      birchTop.setColorAt(bi2,new THREE.Color(choice([0x8fce6f,0x9fde7f])));bi2++;
     }else if(roll<.85&&fI<700){
       M.identity();M.setPosition(x,.18,z);flowM.setMatrixAt(fI,M);
       flowM.setColorAt(fI,new THREE.Color(choice(flowCols)));fI++;
     }else if(tuI<1300){
-      M.identity();M.setPosition(x,.3,z);tuftM.setMatrixAt(tuI++,M);
+      M.identity();M.setPosition(x,.3,z);tuftM.setMatrixAt(tuI,M);
+      Q.setFromEuler(E.set(0,.785,0));S.set(1,1,1);
+      M.compose(new THREE.Vector3(x,.3,z),Q,S);tuftM2.setMatrixAt(tuI,M);
+      tuI++;
     }
   }
   for(let i=0;i<200&&sI<50;i++){
@@ -2050,15 +2127,21 @@ function genOuterWorld(){
       if(tI>=900)break;
       Q.setFromEuler(E.set(0,rand(0,6.28),0));S.set(1,1,1);
       M.compose(new THREE.Vector3(x,1,z),Q,S);scatT.setMatrixAt(tI,M);
-      M.compose(new THREE.Vector3(x,3.1,z),Q,S);scatL.setMatrixAt(tI++,M);
+      M.compose(new THREE.Vector3(x,3.1,z),Q,S);scatL.setMatrixAt(tI,M);
+      M.compose(new THREE.Vector3(x,4.5,z),Q,S);scatTop.setMatrixAt(tI,M);
+      scatTop.setColorAt(tI,new THREE.Color(choice([0x5abf5a,0x6acf6a,0x4aaf4a])));
+      tI++;
     }
   }
   for(let i=0;i<46;i++){
     const a=rand(0,6.28),r2=rand(906,926);
-    M.identity();M.setPosition(Math.cos(a)*r2,.3,Math.sin(a)*r2);tuftM.setMatrixAt(tuI%(1300),M);tuI++;
+    M.identity();M.setPosition(Math.cos(a)*r2,.3,Math.sin(a)*r2);tuftM.setMatrixAt(tuI%1300,M);
+    Q.setFromEuler(E.set(0,.785,0));S.set(1,1,1);
+    M.compose(new THREE.Vector3(Math.cos(a)*r2,.3,Math.sin(a)*r2),Q,S);tuftM2.setMatrixAt(tuI%1300,M);
+    tuI++;
   }
   bushM.count=bI;rockM.count=rI;scatT.count=tI;scatL.count=tI;
-  flowM.count=fI;tuftM.count=Math.min(tuI,1300);stumpM.count=sI;logM.count=lI;birchT.count=bi2;birchL.count=bi2;
+  flowM.count=fI;tuftM.count=Math.min(tuI,1300);tuftM2.count=Math.min(tuI,1300);stumpM.count=sI;logM.count=lI;birchT.count=bi2;birchL.count=bi2;birchTop.count=bi2;
   bushM.castShadow=scatT.castShadow=scatL.castShadow=rockM.castShadow=true;
   birchT.castShadow=birchL.castShadow=true;
   bushM.instanceMatrix.needsUpdate=rockM.instanceMatrix.needsUpdate=true;
@@ -2067,9 +2150,22 @@ function genOuterWorld(){
   stumpM.instanceMatrix.needsUpdate=logM.instanceMatrix.needsUpdate=true;
   birchT.instanceMatrix.needsUpdate=birchL.instanceMatrix.needsUpdate=true;
   if(bushM.instanceColor)bushM.instanceColor.needsUpdate=true;
+  bushTopM.count=bI;
+  bushTopM.instanceMatrix.needsUpdate=true;
+  if(bushTopM.instanceColor)bushTopM.instanceColor.needsUpdate=true;
+  bushTopM.castShadow=true;scene.add(bushTopM);
   if(flowM.instanceColor)flowM.instanceColor.needsUpdate=true;
   scene.add(bushM);scene.add(rockM);scene.add(scatT);scene.add(scatL);
+  scatTop.count=tI;
+  scatTop.instanceMatrix.needsUpdate=true;
+  if(scatTop.instanceColor)scatTop.instanceColor.needsUpdate=true;
+  scatTop.castShadow=true;scene.add(scatTop);
+  tuftM2.instanceMatrix.needsUpdate=true;scene.add(tuftM2);
   scene.add(flowM);scene.add(tuftM);scene.add(stumpM);scene.add(logM);
+  birchTop.count=bi2;
+  birchTop.instanceMatrix.needsUpdate=true;
+  if(birchTop.instanceColor)birchTop.instanceColor.needsUpdate=true;
+  birchTop.castShadow=true;scene.add(birchTop);
   scene.add(birchT);scene.add(birchL);
   const lakeW=new THREE.Mesh(new THREE.CircleGeometry(45,30),new THREE.MeshLambertMaterial({color:0x1d5e8f,emissive:new THREE.Color(0x0a2a44),emissiveIntensity:.3}));
   lakeW.rotation.x=-Math.PI/2;lakeW.position.set(-250,.03,264);scene.add(lakeW);
@@ -2161,7 +2257,10 @@ function genOuterWorld(){
         M.identity();M.setPosition(hx2-14+c3*1.6,.28,hz2-18+r2*1.5);hsCrop.setMatrixAt(hc++,M);
       }
     }
-    hsCrop.count=hc;hsCrop.instanceMatrix.needsUpdate=true;scene.add(hsCrop);
+    hsCrop.count=hc;hsCrop.instanceMatrix.needsUpdate=true;
+    for(let k2=0;k2<hc;k2++)hsCrop.setColorAt(k2,new THREE.Color(k2%2?'#8fae5c':'#a5c46a'));
+    if(hsCrop.instanceColor)hsCrop.instanceColor.needsUpdate=true;
+    scene.add(hsCrop);
   }
   const tentCols=[0xff6b6b,0x4fd7a0];
   [[-350,300,.4],[450,-300,2.2]].forEach(([cx3,cz3,tr3],ci2)=>{
