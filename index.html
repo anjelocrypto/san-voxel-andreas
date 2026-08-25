@@ -134,7 +134,17 @@ const highways=[
   {axis:'z',c:640,from:-120,to:-40,w:12},
   {axis:'x',c:-120,from:505,to:640,w:12}
 ];
-const bridgeRects=[{x0:352,x1:428,z0:-53,z1:-27,y:.18},{x0:338,x1:402,z0:547,z1:573,y:.18},{x0:406,x1:466,z0:188,z1:212,y:.18},{x0:372,x1:428,z0:-592,z1:-568,y:.18}];
+const bridgeRects=[{x0:352,x1:428,z0:-53,z1:-27,y:.18},{x0:338,x1:402,z0:547,z1:573,y:.18},{x0:406,x1:466,z0:188,z1:212,y:.18},{x0:372,x1:428,z0:-592,z1:-568,y:.18}];;
+const hwJunctions=[];
+for(let a=0;a<highways.length;a++)for(let b=a+1;b<highways.length;b++){
+  const A=highways[a],B=highways[b];
+  if(A.axis===B.axis)continue;
+  const jx=A.axis==='z'?A.c:B.c;
+  const jz=A.axis==='z'?B.c:A.c;
+  const inA=A.axis==='z'?(jz>A.from&&jz<A.to):(jx>A.from&&jx<A.to);
+  const inB=B.axis==='z'?(jz>B.from&&jz<B.to):(jx>B.from&&jx<B.to);
+  if(inA&&inB)hwJunctions.push({x:jx,z:jz});
+}
 const riverPts=[];
 for(let rz=-920;rz<=920;rz+=20)riverPts.push({x:380+Math.sin(rz*.006)*60,z:rz});
 const extraLamps=[];
@@ -2457,6 +2467,20 @@ function updateHW(dt){
       const ddx=o.g.position.x-ahx,ddz=o.g.position.z-ahz;
       if(ddx*ddx+ddz*ddz<24){target=0;break;}
     }
+    let jHold=false;
+    for(const jn of hwJunctions){
+      const dxj=jn.x-c.g.position.x,dzj=jn.z-c.g.position.z;
+      const along=dxj*Math.sin(u.hv)+dzj*Math.cos(u.hv);
+      const lat=Math.abs(dxj*Math.cos(u.hv)-dzj*Math.sin(u.hv));
+      if(along>3&&along<26&&lat<8){
+        for(const o of hwCars){
+          if(o===c)continue;
+          const od=Math.hypot(o.g.position.x-jn.x,o.g.position.z-jn.z);
+          if(od<along-2&&Math.abs(o.u.sp)>1){jHold=true;break;}
+        }
+        if(jHold){target=0;if(along<12)u.sp=0;break;}
+      }
+    }
     if(target>0&&mode==='foot'){
       const px=playerH.g.position.x-ahx,pz=playerH.g.position.z-ahz;
       if(px*px+pz*pz<14)target=0;
@@ -2934,6 +2958,12 @@ function makeCar(color,isCop,type){
   if(isCop){
     const spot=new THREE.Mesh(BG(.16,.22,.3),darkMat);spot.position.set(-1.05,1.25,.6);g.add(spot);
   }
+  const blinkMat=new THREE.MeshLambertMaterial({color:0x8a5a10,emissive:new THREE.Color(0xffa028),emissiveIntensity:.12});
+  [[-1,2.28],[1,2.28],[-1,-2.28],[1,-2.28]].forEach(([sx3,sz3])=>{
+    const bm=new THREE.Mesh(BG(.15,.15,.1),blinkMat);
+    bm.position.set(sx3*(wid2/2-.05),.72,sz3*.98);
+    g.add(bm);
+  });
   const wheels=[],fw=[];
   let wz=1.5,wx=1.03,wr=.38;
   if(type==='van'){wz=1.6;wx=1.07;}
@@ -4283,6 +4313,10 @@ function updateMyCar(dt){
       hurtCop(c,999,u.vx*1.5,u.vz*1.5);
   }
 }
+function trafficApplyPlan(u,plan){
+  u.axis=plan.axis;u.line=plan.line;u.dir=plan.dir;u.s=plan.s;
+  u.hv=plan.axis==='x'?(plan.dir>0?Math.PI/2:-Math.PI/2):(plan.dir>0?0:Math.PI);
+}
 function trafficTurn(u,nc){
   const opts=[];
   const se=nc+u.dir*CELL;
@@ -4352,8 +4386,27 @@ function updateCars(dt){
     if(u.ai==='traffic'){
       const ki=u.dir>0?Math.ceil((u.s+HALF-.001)/CELL):Math.floor((u.s-HALF+.001)/CELL);
       const nc=ki*CELL-HALF;
-      if((u.dir>0&&u.s>=nc-.05)||(u.dir<0&&u.s<=nc+.05))trafficTurn(u,nc);
+      const dnc=Math.abs(nc-u.s);
+      if(dnc<16&&!u.plan){
+        const opts=[];
+        const se=nc+u.dir*CELL;
+        if(se>=-HALF&&se<=HALF)opts.push({kind:'straight',axis:u.axis,line:u.line,dir:u.dir,s:nc,w:2.2});
+        const other=u.axis==='x'?'z':'x';
+        for(const nd of[1,-1]){
+          const end=u.line+nd*CELL;
+          if(end>=-HALF&&end<=HALF){
+            const kind=(u.axis==='z'?(nd===-u.dir):(nd===u.dir))?'right':'left';
+            opts.push({kind,axis:other,line:nc,dir:nd,s:u.line,w:kind==='left'?.7:1});
+          }
+        }
+        let tot=0;for(const o of opts)tot+=o.w;
+        let r=Math.random()*tot,sel=opts[opts.length-1];
+        for(const o of opts){r-=o.w;if(r<=0){sel=o;break;}}
+        u.plan=sel;
+        u.blink=sel.kind==='left'?-1:(sel.kind==='right'?1:0);
+      }
       let target=u.cruise;
+      if(u.plan&&u.plan.kind!=='straight'&&dnc<18)target=Math.min(target,5.5);
       const ahx=u.lx+Math.sin(u.hv)*(4.5+u.ax*2),ahz=u.lz+Math.cos(u.hv)*(4.5+u.ax*2);
       for(const o of cars){
         if(o===c)continue;
@@ -4370,14 +4423,49 @@ function updateCars(dt){
         if(ddx*ddx+ddz*ddz<6){target=0;break;}
       }
       const green=u.axis==='z'?SIG.ns!=='r':SIG.ew!=='r';
-      const dnc=Math.abs(nc-u.s);
       if(!green&&dnc<ROADW/2+5.5&&dnc>ROADW/2-.4)target=0;
+      let oncomingHold=false;
+      if(u.plan&&u.plan.kind==='left'&&dnc<ROADW/2+18){
+        let oncoming=false;
+        for(const o of cars){
+          if(o===c||o.u.ai!=='traffic')continue;
+          if(o.u.axis===u.axis&&o.u.line===u.line&&o.u.dir===-u.dir&&Math.abs(o.u.s-nc)<32&&o.u.sp>1){oncoming=true;break;}
+        }
+        if(oncoming&&dnc<ROADW/2+3){oncomingHold=true;target=0;}
+        if(target===0&&u.sp<.5){u.waitT=(u.waitT||0)+dt;}else u.waitT=0;
+        if(u.waitT>4.5)u.plan.force=true;
+      }
+      if(u.plan&&u.plan.kind!=='straight'&&dnc<ROADW/2+2){
+        let exX,exZ;
+        if(u.plan.kind==='straight'){
+          if(u.axis==='x'){exX=nc+u.dir*(ROADW/2+5);exZ=u.line;}
+          else{exX=u.line;exZ=nc+u.dir*(ROADW/2+5);}
+        }else{
+          exX=u.plan.axis==='x'?u.plan.s:u.plan.line;
+          exZ=u.plan.axis==='z'?u.plan.s:u.plan.line;
+        }
+        let exitBlocked=false;
+        for(const o of cars){
+          if(o===c)continue;
+          if(Math.hypot(o.g.position.x-exX,o.g.position.z-exZ)<4.2){exitBlocked=true;break;}
+        }
+        if(exitBlocked&&!u.plan.force){target=0;u.plan.exitBlocked=true;}
+      }
       if(target===0&&u.sp<.5){u.blockT=(u.blockT||0)+dt;if(u.blockT>2.5&&(u.hornT||0)<=0){u.hornT=rand(1.5,4);audio.beep('square',290,260,.22,.06);}}else u.blockT=0;
       u.hornT=(u.hornT||0)-dt;
       if(u.sp<target)u.sp=Math.min(target,u.sp+8*Math.min(1,(u.acc||17)/17)*dt);
       else u.sp=Math.max(target,u.sp-24*dt);
       u.s+=u.dir*u.sp*dt;
-      if(!green&&dnc<ROADW/2+.6&&u.sp<1.5)u.s=u.dir>0?nc-(ROADW/2+.7):nc+(ROADW/2+.7);
+      const atLine=(u.dir>0&&u.s>=nc-(ROADW/2+.7))||(u.dir<0&&u.s<=nc+(ROADW/2+.7));
+      const pastLine=(u.dir>0&&u.s>nc+(ROADW/2+.7))||(u.dir<0&&u.s<nc-(ROADW/2+.7));
+      const mustHold=(!green&&dnc<ROADW/2+6)||(oncomingHold&&!u.plan.force)||(u.plan&&u.plan.exitBlocked&&!u.plan.force);
+      if(atLine&&!pastLine&&mustHold&&u.sp<1.5)u.s=u.dir>0?nc-(ROADW/2+.7):nc+(ROADW/2+.7);
+      const crossed=(u.dir>0&&u.s>nc+ROADW/2)||(u.dir<0&&u.s<nc-ROADW/2);
+      if(crossed){u.plan=null;u.blink=0;}
+      if(!crossed&&(u.dir>0&&u.s>=nc-.05)||(u.dir<0&&u.s<=nc+.05)){
+        if(u.plan&&!mustHold){trafficApplyPlan(u,u.plan);u.plan=null;u.blink=0;}
+        else if(!u.plan){trafficTurn(u,nc);}
+      }
       syncTrafficPos(c,false);
       const sm=1-Math.exp(-10*dt);
       c.g.position.x+=(u.lx-c.g.position.x)*sm;
@@ -4388,6 +4476,8 @@ function updateCars(dt){
       for(const w of c.wheels)w.rotation.x-=u.sp/(u.wr||.38)*dt;
       const res=resolveCircle(c.g.position.x,c.g.position.z,u.rad);
       if(res){c.g.position.x=res.x;c.g.position.z=res.z;u.sp*=.5;}
+      const blinkOn=u.blink!==0&&Math.floor(performance.now()/280)%2===0;
+      if(c.blinkMat)c.blinkMat.emissiveIntensity=blinkOn?2.4:.12;
     }else if(u.ai==='cop'){
       updateCopCar(c,dt);
     }else{
