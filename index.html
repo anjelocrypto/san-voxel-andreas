@@ -1714,16 +1714,18 @@ function genOuterWorld(){
   const scHead=new THREE.Mesh(BG(.4,.4,.4),cmat('#c9a83e'));scHead.position.y=2.35;scHead.castShadow=true;scare.add(scHead);
   const scHat=new THREE.Mesh(BG(.5,.16,.5),cmat('#7a5230'));scHat.position.y=2.6;scare.add(scHat);
   scene.add(scare);
-  const pineTrunk=new THREE.InstancedMesh(BG(.4,1.6,.4),cmat('#5f452c'),210);
-  const pineT1=new THREE.InstancedMesh(BG(2.8,1.1,2.8),cmat('#2e6b34'),210);
-  const pineT2=new THREE.InstancedMesh(BG(2,1,2),cmat('#357a3b'),210);
-  const pineT3=new THREE.InstancedMesh(BG(1.2,.9,1.2),cmat('#3f8f46'),210);
+  const pineTrunk=new THREE.InstancedMesh(BG(.4,1.6,.4),cmat('#5f452c'),420);
+  const pineT1=new THREE.InstancedMesh(BG(2.8,1.1,2.8),cmat('#2e6b34'),420);
+  const pineT2=new THREE.InstancedMesh(BG(2,1,2),cmat('#357a3b'),420);
+  const pineT3=new THREE.InstancedMesh(BG(1.2,.9,1.2),cmat('#3f8f46'),420);
   {
     let placed=0;
-    for(let i=0;i<600&&placed<210;i++){
+    for(let i=0;i<1200&&placed<420;i++){
       let x,z;
       if(placed<90){x=rand(-560,-440);z=rand(-520,-380);}
       else if(placed<150){x=rand(480,620);z=rand(180,340);}
+      else if(placed<230){x=rand(452,494);z=rand(-320,-80);}
+      else if(placed<310){x=rand(-80,140);z=rand(720,820);}
       else{x=rand(-470,-320);z=rand(210,380);}
       if(circleBlocked(x,z,2))continue;
       let nearHW=false;
@@ -1888,58 +1890,93 @@ function genOuterWorld(){
   }
   lantP.instanceMatrix.needsUpdate=lantL.instanceMatrix.needsUpdate=true;
   scene.add(lantP);scene.add(lantL);
-  const bushM=new THREE.InstancedMesh(BG(1.2,.9,1.2),cmat('#3f8f3f'),520);
-  const rockM=new THREE.InstancedMesh(BG(1,.8,1),cmat('#7d8087'),150);
-  const scatT=new THREE.InstancedMesh(BG(.5,2,.5),cmat('#6b4a2b'),330);
-  const scatL=new THREE.InstancedMesh(BG(3,2.8,3),cmat('#4a9a4a'),330);
-  const flowM=new THREE.InstancedMesh(BG(.18,.32,.18),new THREE.MeshLambertMaterial({color:0xffffff}),340);
-  const tuftM=new THREE.InstancedMesh(BG(.36,.6,.36),cmat('#5aa848'),440);
-  const stumpM=new THREE.InstancedMesh(new THREE.CylinderGeometry(.34,.4,.32,7),cmat('#6b4a2b'),26);
-  const logM=new THREE.InstancedMesh((()=>{const g=new THREE.CylinderGeometry(.22,.22,1.6,7);g.rotateZ(Math.PI/2);return g;})(),cmat('#7a5a38'),16);
+  const bushM=new THREE.InstancedMesh(BG(1.2,.9,1.2),cmat('#3f8f3f'),920);
+  const rockM=new THREE.InstancedMesh(BG(1,.8,1),cmat('#7d8087'),260);
+  const scatT=new THREE.InstancedMesh(BG(.5,2,.5),cmat('#6b4a2b'),900);
+  const scatL=new THREE.InstancedMesh(BG(3,2.8,3),cmat('#4a9a4a'),900);
+  const flowM=new THREE.InstancedMesh(BG(.18,.32,.18),new THREE.MeshLambertMaterial({color:0xffffff}),700);
+  const tuftM=new THREE.InstancedMesh(BG(.36,.6,.36),cmat('#5aa848'),1300);
+  const stumpM=new THREE.InstancedMesh(new THREE.CylinderGeometry(.34,.4,.32,7),cmat('#6b4a2b'),50);
+  const logM=new THREE.InstancedMesh((()=>{const g=new THREE.CylinderGeometry(.22,.22,1.6,7);g.rotateZ(Math.PI/2);return g;})(),cmat('#7a5a38'),30);
+  const birchT=new THREE.InstancedMesh(BG(.28,1.7,.28),cmat('#dcdcd2'),140);
+  const birchL=new THREE.InstancedMesh(BG(2.2,2.1,2.2),cmat('#8fce6f'),140);
   const riverXat=z=>380+Math.sin(z*.006)*60;
-  const townC=[[0,-620,180],[-610,80,170],[620,-40,180],[0,650,190],[-500,-450,190],[-250,264,72]];
+  const townC=[[0,-620,180],[-610,80,170],[620,-40,180],[0,650,190],[-500,-450,190],[-250,264,66]];
   const bushCols=[0x3f8f3f,0x4a9a4a,0x357f35,0x57a057];
   const flowCols=[0xff6b8a,0xffd23a,0xffffff,0xb04fff,0xff8a5c];
-  let bI=0,rI=0,tI=0,fI=0,tuI=0,sI=0,lI=0;
-  for(let tries=0;tries<7000&&(bI<520||rI<150||tI<330||fI<340||tuI<440);tries++){
-    const x=rand(-WORLD_R+30,WORLD_R-30),z=rand(-WORLD_R+30,WORLD_R-30);
+  const meadows=[];
+  let bI=0,rI=0,tI=0,fI=0,tuI=0,sI=0,lI=0,bi2=0;
+  for(let mt=0;mt<60&&meadows.length<9;mt++){
+    const x=rand(-WORLD_R+80,WORLD_R-80),z=rand(-WORLD_R+80,WORLD_R-80);
     if(Math.abs(x)<300&&Math.abs(z)<300)continue;
-    if(Math.abs(x-riverXat(z))<30)continue;
+    if(Math.abs(x-riverXat(z))<40)continue;
+    let bad=false;
+    for(const [tx3,tz3,tr3] of townC)if(Math.hypot(x-tx3,z-tz3)<tr3+30){bad=true;break;}
+    if(bad)continue;
+    for(const hw of highways){
+      if(hw.axis==='z'){if(Math.abs(x-hw.c)<hw.w/2+8&&z>hw.from-8&&z<hw.to+8)bad=true;}
+      else if(Math.abs(z-hw.c)<hw.w/2+8&&x>hw.from-8&&x<hw.to+8)bad=true;
+    }
+    if(bad)continue;
+    meadows.push({x,z});
+  }
+  const countrysideOK=(x,z)=>{
+    if(Math.abs(x)<300&&Math.abs(z)<300)return false;
+    if(Math.abs(x-riverXat(z))<28)return false;
+    for(const [tx3,tz3,tr3] of townC)if(Math.hypot(x-tx3,z-tz3)<tr3)return false;
+    for(const hw of highways){
+      if(hw.axis==='z'){if(Math.abs(x-hw.c)<hw.w/2+6&&z>hw.from-6&&z<hw.to+6)return false;}
+      else if(Math.abs(z-hw.c)<hw.w/2+6&&x>hw.from-6&&x<hw.to+6)return false;
+    }
+    return !circleBlocked(x,z,1);
+  };
+  for(let tries=0;tries<26000&&(bI<920||rI<260||tI<900||bi2<140||fI<700||tuI<1300);tries++){
+    let x,z;
+    const meadow=meadows.length&&Math.random()<.35?choice(meadows):null;
+    if(meadow){x=meadow.x+rand(-16,16);z=meadow.z+rand(-14,14);}
+    else{x=rand(-WORLD_R+30,WORLD_R-30);z=rand(-WORLD_R+30,WORLD_R-30);}
+    if(Math.abs(x)>WORLD_R-30||Math.abs(z)>WORLD_R-30)continue;
+    if(Math.abs(x)<300&&Math.abs(z)<300)continue;
+    if(Math.abs(x-riverXat(z))<28)continue;
     let nearTown=false;
-    for(const [tx2,tz2,tr2] of townC)if(Math.hypot(x-tx2,z-tz2)<tr2){nearTown=true;break;}
+    for(const [tx3,tz3,tr3] of townC)if(Math.hypot(x-tx3,z-tz3)<tr3){nearTown=true;break;}
     if(nearTown)continue;
     let nearRoad=false;
     for(const hw of highways){
-      if(hw.axis==='z'){if(Math.abs(x-hw.c)<hw.w/2+6&&z>hw.from&&z<hw.to)nearRoad=true;}
-      else if(Math.abs(z-hw.c)<hw.w/2+6&&x>hw.from&&x<hw.to)nearRoad=true;
+      if(hw.axis==='z'){if(Math.abs(x-hw.c)<hw.w/2+6&&z>hw.from-6&&z<hw.to+6)nearRoad=true;}
+      else if(Math.abs(z-hw.c)<hw.w/2+6&&x>hw.from-6&&x<hw.to+6)nearRoad=true;
     }
     if(nearRoad)continue;
     if(circleBlocked(x,z,1))continue;
     const roll=Math.random();
-    if(roll<.34&&bI<520){
+    if(roll<.3&&bI<920){
       M.identity();M.setPosition(x,.45,z);bushM.setMatrixAt(bI,M);
       bushM.setColorAt(bI,new THREE.Color(choice(bushCols)));bI++;
-    }else if(roll<.44&&rI<150){
+    }else if(roll<.4&&rI<260){
       M.identity();M.setPosition(x,.3,z);rockM.setMatrixAt(rI++,M);
-    }else if(roll<.62&&tI<330){
+    }else if(roll<.62&&tI<900){
       Q.setFromEuler(E.set(0,rand(0,6.28),0));S.set(1,1,1);
       M.compose(new THREE.Vector3(x,1,z),Q,S);scatT.setMatrixAt(tI,M);
       M.compose(new THREE.Vector3(x,3.1,z),Q,S);scatL.setMatrixAt(tI++,M);
-    }else if(roll<.8&&fI<340){
+    }else if(roll<.7&&bi2<140){
+      Q.setFromEuler(E.set(0,rand(0,6.28),0));S.set(1,1,1);
+      M.compose(new THREE.Vector3(x,.85,z),Q,S);birchT.setMatrixAt(bi2,M);
+      M.compose(new THREE.Vector3(x,2.6,z),Q,S);birchL.setMatrixAt(bi2++,M);
+    }else if(roll<.85&&fI<700){
       M.identity();M.setPosition(x,.18,z);flowM.setMatrixAt(fI,M);
       flowM.setColorAt(fI,new THREE.Color(choice(flowCols)));fI++;
-    }else if(tuI<440){
+    }else if(tuI<1300){
       M.identity();M.setPosition(x,.3,z);tuftM.setMatrixAt(tuI++,M);
     }
   }
-  for(let i=0;i<26&&sI<26;i++){
+  for(let i=0;i<200&&sI<50;i++){
     const x=rand(-WORLD_R+40,WORLD_R-40),z=rand(-WORLD_R+40,WORLD_R-40);
     if(circleBlocked(x,z,.6))continue;
     if(Math.abs(x)<300&&Math.abs(z)<300)continue;
     if(Math.abs(x-riverXat(z))<26)continue;
     M.identity();M.setPosition(x,.16,z);stumpM.setMatrixAt(sI++,M);
   }
-  for(let i=0;i<16&&lI<16;i++){
+  for(let i=0;i<200&&lI<30;i++){
     const x=rand(-WORLD_R+40,WORLD_R-40),z=rand(-WORLD_R+40,WORLD_R-40);
     if(circleBlocked(x,z,.9))continue;
     if(Math.abs(x)<300&&Math.abs(z)<300)continue;
@@ -1947,17 +1984,44 @@ function genOuterWorld(){
     Q.setFromEuler(E.set(0,rand(0,6.28),0));S.set(1,1,1);
     M.compose(new THREE.Vector3(x,.22,z),Q,S);logM.setMatrixAt(lI++,M);
   }
+  for(let i=2;i<riverPts.length-2;i+=2){
+    const rp=riverPts[i];
+    for(const side of[1,-1]){
+      const x=rp.x+side*rand(21,30),z=rp.z+rand(-9,9);
+      if(Math.abs(x)>WORLD_R-30)continue;
+      let bad=false;
+      for(const bz3 of[-580,-40,200,560])if(Math.abs(z-bz3)<26)bad=true;
+      if(bad)continue;
+      for(const hw of highways){
+        if(hw.axis==='z'){if(Math.abs(x-hw.c)<hw.w/2+5&&z>hw.from&&z<hw.to)bad=true;}
+        else if(Math.abs(z-hw.c)<hw.w/2+5&&x>hw.from&&x<hw.to)bad=true;
+      }
+      if(bad)continue;
+      if(circleBlocked(x,z,1))continue;
+      if(tI>=900)break;
+      Q.setFromEuler(E.set(0,rand(0,6.28),0));S.set(1,1,1);
+      M.compose(new THREE.Vector3(x,1,z),Q,S);scatT.setMatrixAt(tI,M);
+      M.compose(new THREE.Vector3(x,3.1,z),Q,S);scatL.setMatrixAt(tI++,M);
+    }
+  }
+  for(let i=0;i<46;i++){
+    const a=rand(0,6.28),r2=rand(906,926);
+    M.identity();M.setPosition(Math.cos(a)*r2,.3,Math.sin(a)*r2);tuftM.setMatrixAt(tuI%(1300),M);tuI++;
+  }
   bushM.count=bI;rockM.count=rI;scatT.count=tI;scatL.count=tI;
-  flowM.count=fI;tuftM.count=tuI;stumpM.count=sI;logM.count=lI;
+  flowM.count=fI;tuftM.count=Math.min(tuI,1300);stumpM.count=sI;logM.count=lI;birchT.count=bi2;birchL.count=bi2;
   bushM.castShadow=scatT.castShadow=scatL.castShadow=rockM.castShadow=true;
+  birchT.castShadow=birchL.castShadow=true;
   bushM.instanceMatrix.needsUpdate=rockM.instanceMatrix.needsUpdate=true;
   scatT.instanceMatrix.needsUpdate=scatL.instanceMatrix.needsUpdate=true;
   flowM.instanceMatrix.needsUpdate=tuftM.instanceMatrix.needsUpdate=true;
   stumpM.instanceMatrix.needsUpdate=logM.instanceMatrix.needsUpdate=true;
+  birchT.instanceMatrix.needsUpdate=birchL.instanceMatrix.needsUpdate=true;
   if(bushM.instanceColor)bushM.instanceColor.needsUpdate=true;
   if(flowM.instanceColor)flowM.instanceColor.needsUpdate=true;
   scene.add(bushM);scene.add(rockM);scene.add(scatT);scene.add(scatL);
   scene.add(flowM);scene.add(tuftM);scene.add(stumpM);scene.add(logM);
+  scene.add(birchT);scene.add(birchL);
   const lakeW=new THREE.Mesh(new THREE.CircleGeometry(45,30),new THREE.MeshLambertMaterial({color:0x1d5e8f,emissive:new THREE.Color(0x0a2a44),emissiveIntensity:.3}));
   lakeW.rotation.x=-Math.PI/2;lakeW.position.set(-250,.03,264);scene.add(lakeW);
   const lakeSand=new THREE.Mesh(new THREE.RingGeometry(45,54,30),cmat('#c9b47e'));
@@ -1969,6 +2033,14 @@ function genOuterWorld(){
   }
   reedM.instanceMatrix.needsUpdate=true;scene.add(reedM);
   const ldock=new THREE.Mesh(BG(1.4,.14,7),cmat('#7a5a38'));ldock.position.set(-236,.12,264);scene.add(ldock);
+  const lilyM=new THREE.InstancedMesh(new THREE.CircleGeometry(.55,8),cmat('#2e7d4f'),20);
+  for(let i=0;i<20;i++){
+    const a=rand(0,6.28),r2=rand(8,38);
+    Q.setFromEuler(E.set(-Math.PI/2,0,rand(0,3)));S.set(1,1,1);
+    M.compose(new THREE.Vector3(-250+Math.cos(a)*r2,.05,264+Math.sin(a)*r2),Q,S);
+    lilyM.setMatrixAt(i,M);
+  }
+  lilyM.instanceMatrix.needsUpdate=true;scene.add(lilyM);
   const makeWindmill=(x,z)=>{
     const gp=new THREE.Group();gp.position.set(x,0,z);
     const t1=new THREE.Mesh(BG(1.6,5.5,1.6),cmat('#d8d5cc'));t1.position.y=2.75;t1.castShadow=true;gp.add(t1);
